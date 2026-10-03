@@ -1,4 +1,4 @@
-# ConectaTem
+# ConecTEM
 
 **El puente entre el centro de atención temprana y tu hogar.**
 
@@ -61,17 +61,86 @@ reales — tampoco en datos de prueba, fixtures o capturas. Todo inventado, siem
 Trabajamos con datos sanitarios de menores con diagnóstico: una vez que un archivo entra
 en el historial de git, ya no se quita.
 
-**2. Nada de claves ni tokens en el código.** Las claves de API (transcripción, LLM,
-alojamiento) van en variables de entorno y **nunca** se suben.
+**2. Nada de claves ni tokens en el código.** Las claves van en `.env.local`, que
+**nunca** se sube. La clave secreta de Supabase y la de Gemini no van ni siquiera ahí: solo
+como secretos de las Edge Functions.
 
 **3. Arquitectura consensuada.** La transparencia 10 de la asignatura lo pide
 explícitamente: se puede generar código con ayuda de IA, **pero hay que supervisarlo y
 entenderlo**, y debe respetar una arquitectura uniforme acordada por el equipo.
 
+## Tecnologías
+
+| Parte | Tecnología |
+|---|---|
+| App móvil y web | **React Native + Expo SDK 57** (JavaScript), navegación con **Expo Router** |
+| Cámara y vídeo | `expo-camera` |
+| Backend | **Supabase** (PostgreSQL, autenticación, almacenamiento, Edge Functions) — región UE |
+| IA (Sprint 2) | API de **Gemini**, solo plan de pago y solo desde una Edge Function |
+| Pruebas | **Jest** + React Native Testing Library (unitarias) · **Playwright** (web, end-to-end) |
+| Integración continua | **GitHub Actions**: las pruebas se ejecutan en cada push a `main` |
+| Despliegue | **Vercel** (versión web) · **Expo Go** (móviles, durante el desarrollo) |
+
+## Cómo arrancar el proyecto
+
+### 1. Requisitos (una sola vez)
+
+- **Node.js 24 LTS.** Comprueba con `node --version` que empieza por `v24`.
+  - **Mac** (con Homebrew): `brew install node@24 && brew link --force --overwrite node@24`
+  - **Windows**: descarga el instalador *LTS* (versión 24) de [nodejs.org](https://nodejs.org)
+    y deja marcadas las opciones por defecto. Después cierra y vuelve a abrir la terminal.
+- **Git** y **VS Code**.
+- En el móvil, la app **Expo Go** (App Store / Google Play).
+
+### 2. Descargar e instalar
+
+```bash
+git clone https://github.com/Genodan/PIN-ConectaTem-L2-4IS12.git
+cd PIN-ConectaTem-L2-4IS12
+npm install
+```
+
+### 3. Variables de entorno
+
+Copia `.env.example` como `.env.local` y pon los valores del proyecto Supabase
+(se pasan **en privado** dentro del equipo, nunca por el repositorio).
+
+- Mac: `cp .env.example .env.local`
+- Windows (PowerShell): `Copy-Item .env.example .env.local`
+
+Sin `.env.local` la app arranca igual, pero sin conexión a la base de datos.
+
+### 4. Ejecutar
+
+| Comando | Qué hace |
+|---|---|
+| `npm start` | Arranca Expo. Escanea el QR con **Expo Go** (el móvil y el ordenador en la misma wifi) |
+| `npm run web` | Abre la versión web en el navegador |
+| `npm test` | Pruebas unitarias (Jest) |
+| `npx playwright install chromium` | Descarga el navegador de pruebas (una sola vez) |
+| `npm run test:e2e` | Pruebas end-to-end sobre la versión web (Playwright) |
+
+### Estructura
+
+```
+src/app/          pantallas (cada fichero es una ruta de Expo Router)
+  _layout.js      navegación principal
+  index.js        inicio
+  familia/        pantallas de la familia
+  terapeuta/      pantallas de la terapeuta
+src/components/   componentes reutilizables
+src/lib/          utilidades (cliente de Supabase)
+__tests__/        pruebas unitarias (Jest)
+e2e/              pruebas end-to-end (Playwright)
+```
+
+> En `src/app/` **solo van pantallas**: cualquier fichero que se ponga ahí se convierte en
+> una ruta. Pruebas, componentes y utilidades van fuera.
+
 ## Estado
 
-🚧 **Sprint 0.** Todavía no hay código: falta cerrar la **selección de tecnologías**, cuyo
-resultado es el *diagrama de diseño global* que pide el trabajo de la Semana 2.
+🚧 **Sprint 0.** El esqueleto de la app ya está en marcha: navegación, pruebas automáticas
+y conexión preparada con Supabase. Las pantallas de familia y terapeuta son provisionales.
 
 | Sprint | Contenido |
 |---|---|
