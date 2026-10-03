@@ -8,16 +8,18 @@ module.exports = defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://localhost:8081',
+    baseURL: 'http://127.0.0.1:8081',
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  // Arranca el servidor web de Expo antes de las pruebas (o reutiliza el que ya esté abierto).
+  // Genera la versión web estática (la misma que se despliega en Vercel) y la sirve en
+  // 127.0.0.1:8081 antes de las pruebas. En GitHub Actions el servidor de desarrollo de
+  // Expo no respondía al navegador; la build estática es además más fiel a producción.
   webServer: {
-    command: 'npx expo start --web --port 8081',
-    url: 'http://localhost:8081',
+    command: 'npx expo export --platform web && npx serve dist --single --no-clipboard --listen tcp://127.0.0.1:8081',
+    url: 'http://127.0.0.1:8081',
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
     env: { CI: '1' },
   },
 });

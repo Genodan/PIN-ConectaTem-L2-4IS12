@@ -35,7 +35,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@testing-library/react-native": "^14.0.1"
+    "@testing-library/react-native": "^14.0.1",
+    "serve": "^14.2.6"
   },
   "jest": {
     "preset": "jest-expo",
