@@ -73,12 +73,12 @@ entenderlo**, y debe respetar una arquitectura uniforme acordada por el equipo.
 
 | Parte | Tecnología |
 |---|---|
-| App móvil y web | **React Native + Expo SDK 57** (JavaScript), navegación con **Expo Router** |
+| App móvil y web | **React Native + Expo SDK 57** en **TypeScript**, navegación con **Expo Router** |
 | Cámara y vídeo | `expo-camera` |
 | Backend | **Supabase** (PostgreSQL, autenticación, almacenamiento, Edge Functions) — región UE |
 | IA (Sprint 2) | API de **Gemini**, solo plan de pago y solo desde una Edge Function |
 | Pruebas | **Jest** + React Native Testing Library (unitarias) · **Playwright** (web, end-to-end) |
-| Integración continua | **GitHub Actions**: las pruebas se ejecutan en cada push a `main` |
+| Integración continua | **GitHub Actions**: tipos y pruebas en cada push a `main` |
 | Despliegue | **Vercel** (versión web) · **Expo Go** (móviles, durante el desarrollo) |
 
 ## Cómo arrancar el proyecto
@@ -116,6 +116,7 @@ Sin `.env.local` la app arranca igual, pero sin conexión a la base de datos.
 |---|---|
 | `npm start` | Arranca Expo. Escanea el QR con **Expo Go** (el móvil y el ordenador en la misma wifi) |
 | `npm run web` | Abre la versión web en el navegador |
+| `npm run typecheck` | Comprueba los tipos de TypeScript |
 | `npm test` | Pruebas unitarias (Jest) |
 | `npx playwright install chromium` | Descarga el navegador de pruebas (una sola vez) |
 | `npm run test:e2e` | Pruebas end-to-end sobre la versión web (Playwright) |
@@ -124,8 +125,8 @@ Sin `.env.local` la app arranca igual, pero sin conexión a la base de datos.
 
 ```
 src/app/          pantallas (cada fichero es una ruta de Expo Router)
-  _layout.js      navegación principal
-  index.js        inicio
+  _layout.tsx     navegación principal
+  index.tsx       inicio
   familia/        pantallas de la familia
   terapeuta/      pantallas de la terapeuta
 src/components/   componentes reutilizables

@@ -9,22 +9,23 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 // La clave "publishable" está pensada para ir en la app: la seguridad de los datos
-// depende de las políticas RLS de la base de datos. La clave secreta (service_role)
-// y la de Gemini NUNCA van aquí: solo en los secretos de las Edge Functions.
-export const supabaseConfigurado = Boolean(supabaseUrl && supabasePublishableKey);
+// depende de las políticas RLS de la base de datos. La clave secreta y la de Gemini
+// NUNCA van aquí: solo en los secretos de las Edge Functions.
+export const supabase =
+  supabaseUrl && supabasePublishableKey
+    ? createClient(supabaseUrl, supabasePublishableKey, {
+        auth: {
+          storage: localStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      })
+    : null;
 
-export const supabase = supabaseConfigurado
-  ? createClient(supabaseUrl, supabasePublishableKey, {
-      auth: {
-        storage: localStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
+export const supabaseConfigurado = supabase !== null;
 
-if (!supabaseConfigurado) {
+if (!supabase) {
   console.warn('Supabase sin configurar: copia .env.example a .env.local y rellena los valores.');
 }
 

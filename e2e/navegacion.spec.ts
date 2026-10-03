@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { expect, test } from '@playwright/test';
 
 // Navegación básica: desde el inicio se llega a los dos paneles.
 test('desde el inicio se entra al panel de la familia', async ({ page }) => {

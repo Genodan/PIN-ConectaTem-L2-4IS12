@@ -1,8 +1,7 @@
-// @ts-check
-const { defineConfig, devices } = require('@playwright/test');
+import { defineConfig, devices } from '@playwright/test';
 
 // Pruebas end-to-end sobre la versión web de la app (la que se despliega en Vercel).
-module.exports = defineConfig({
+export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,

@@ -7,7 +7,7 @@ on:
 
 jobs:
   unitarias:
-    name: Pruebas unitarias (Jest)
+    name: Tipos (TypeScript) y pruebas unitarias (Jest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -16,6 +16,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - run: npx tsc --noEmit
       - run: npx jest --ci
 
   e2e:
