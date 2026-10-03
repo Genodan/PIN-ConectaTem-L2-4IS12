@@ -2,6 +2,8 @@
 
 **El puente entre el centro de atención temprana y tu hogar.**
 
+🌐 **Versión web:** https://conectem-ashen.vercel.app — se actualiza sola con cada push a `main`.
+
 Proyecto de la asignatura **PIN 11574 — Proyecto de Ingeniería de Software**
 (ETSINF, UPV · curso 2026/27). Grupo **L2-4IS12**.
 El mismo proyecto se trabaja también en **AER 11570**.
