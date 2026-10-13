@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, Alert, StyleSheet } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { obtenerPacientesLibres, vincularPaciente } from '../services/pacientesService';
+import { obtenerPacientesParaAsignar, vincularPaciente } from '../services/pacientesService';
 
 export const AsignacionPacientes = ({ terapeutaIdActual }: { terapeutaIdActual: string }) => {
-  const [pacientesLibres, setPacientesLibres] = useState<any[]>([]);
+  const [pacientesDisponibles, setPacientesDisponibles] = useState<any[]>([]);
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   const cargarPacientes = async () => {
     try {
-      const datos = await obtenerPacientesLibres();
-      setPacientesLibres(datos || []);
+      // Pasamos el ID actual para no mostrar los pacientes que ya son nuestros
+      const datos = await obtenerPacientesParaAsignar(terapeutaIdActual);
+      setPacientesDisponibles(datos || []);
       if (datos && datos.length > 0) setPacienteSeleccionado(datos[0].id);
       else setPacienteSeleccionado(null);
     } catch (error: any) {
@@ -19,9 +20,12 @@ export const AsignacionPacientes = ({ terapeutaIdActual }: { terapeutaIdActual: 
     }
   };
 
+  // Escuchamos los cambios en terapeutaIdActual para recargar la lista si cambias de terapeuta en el simulador
   useEffect(() => {
-    cargarPacientes();
-  }, []);
+    if (terapeutaIdActual) {
+      cargarPacientes();
+    }
+  }, [terapeutaIdActual]);
 
   const manejarAsignacion = async () => {
     if (!pacienteSeleccionado) return;
@@ -29,11 +33,10 @@ export const AsignacionPacientes = ({ terapeutaIdActual }: { terapeutaIdActual: 
 
     try {
       await vincularPaciente(pacienteSeleccionado, terapeutaIdActual);
-      Alert.alert('Éxito', '¡Paciente asignado correctamente a tu cartera!');
-      await cargarPacientes(); // Refresca el desplegable
+      Alert.alert('Éxito', '¡Paciente asignado y transferido a tu cartera!');
+      await cargarPacientes(); 
     } catch (error: any) {
       Alert.alert('Aviso', error.message);
-      await cargarPacientes(); 
     } finally {
       setCargando(false);
     }
@@ -41,10 +44,10 @@ export const AsignacionPacientes = ({ terapeutaIdActual }: { terapeutaIdActual: 
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Asignar Nuevo Paciente</Text>
+      <Text style={styles.titulo}>Asignar o Transferir Paciente</Text>
 
-      {pacientesLibres.length === 0 ? (
-        <Text style={styles.textoVacio}>No hay pacientes libres en este momento.</Text>
+      {pacientesDisponibles.length === 0 ? (
+        <Text style={styles.textoVacio}>Todos los pacientes ya están en tu cartera.</Text>
       ) : (
         <View>
           <View style={styles.pickerContainer}>
@@ -52,7 +55,7 @@ export const AsignacionPacientes = ({ terapeutaIdActual }: { terapeutaIdActual: 
               selectedValue={pacienteSeleccionado}
               onValueChange={(itemValue) => setPacienteSeleccionado(itemValue)}
             >
-              {pacientesLibres.map((paciente) => (
+              {pacientesDisponibles.map((paciente) => (
                 <Picker.Item 
                   key={paciente.id} 
                   label={`${paciente.nombre_nino} ${paciente.nombre_familia}`} 

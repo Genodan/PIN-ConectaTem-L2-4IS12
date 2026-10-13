@@ -1,27 +1,37 @@
 import { supabase } from '../utils/supabase';
 
-// Trae los pacientes cuyo terapeuta_asignado_id sea NULL[cite: 6]
-export const obtenerPacientesLibres = async () => {
+// Trae todos los pacientes EXCEPTO los que ya pertenecen al terapeuta actual
+export const obtenerPacientesParaAsignar = async (terapeutaIdActual: string) => {
   const { data, error } = await supabase
     .from('pacientes')
     .select('id, nombre_nino, nombre_familia')
-    .is('terapeuta_asignado_id', null);
+    .or(`terapeuta_asignado_id.neq.${terapeutaIdActual},terapeuta_asignado_id.is.null`);
 
-  if (error) throw new Error('Error al cargar pacientes libres: ' + error.message);
+  if (error) throw new Error('Error al cargar pacientes: ' + error.message);
   return data;
 };
 
-// Asigna el terapeuta al paciente[cite: 6]
 export const vincularPaciente = async (pacienteId: string, terapeutaId: string) => {
+  // 1. Imprimimos por consola lo que estamos intentando enviar
+  console.log("Intentando vincular -> Paciente:", pacienteId, "con Terapeuta:", terapeutaId);
+
   const { data, error } = await supabase
     .from('pacientes')
     .update({ terapeuta_asignado_id: terapeutaId })
     .eq('id', pacienteId)
-    .is('terapeuta_asignado_id', null) // Evita que dos terapeutas lo cojan a la vez
     .select();
 
-  if (error) throw new Error('Error al asignar paciente en la base de datos.');
-  if (!data || data.length === 0) throw new Error('El paciente ya ha sido asignado a otro terapeuta.');
+  // 2. Imprimimos la respuesta exacta de Supabase
+  console.log("Respuesta de Supabase ->", { data, error });
+
+  if (error) {
+    throw new Error('Error al asignar paciente: ' + error.message);
+  }
+  
+  // Si data viene vacío (length === 0), es el fallo silencioso
+  if (!data || data.length === 0) {
+    throw new Error('Supabase no actualizó nada. Posible bloqueo de permisos (RLS).');
+  }
 
   return data[0];
 };
