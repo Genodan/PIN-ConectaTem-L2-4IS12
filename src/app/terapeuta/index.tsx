@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { AsignacionPacientes } from '../../components/AsignacionPacientes';
+import { RevisionTareas } from '../../components/RevisionTareas'; // <-- 1. IMPORTACIÓN AÑADIDA
 import { supabase } from '../../utils/supabase';
 
 export default function InicioTerapeuta() {
@@ -37,8 +38,9 @@ export default function InicioTerapeuta() {
     );
   }
 
+  // Cambiado View por ScrollView para poder hacer scroll si hay muchas tareas
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       {/* 1. SECCIÓN DE "LOGIN" FALSO */}
       <View style={styles.loginContainer}>
         <Text style={styles.tituloSecundario}>¿Quién eres? (Simulación de Login)</Text>
@@ -61,14 +63,18 @@ export default function InicioTerapeuta() {
         )}
       </View>
 
-      {/* 2. SECCIÓN DE ASIGNACIÓN (El componente que hicimos antes) */}
+      {/* 2. SECCIÓN DE ASIGNACIÓN */}
       <View style={styles.separador} />
       
       {terapeutaActual && (
-        // Le pasamos el ID del terapeuta que hayas seleccionado en el desplegable de arriba
         <AsignacionPacientes terapeutaIdActual={terapeutaActual} />
       )}
-    </View>
+
+      {/* 3. SECCIÓN DE BANDEJA DE ENTRADA (Tareas completadas) */}
+      {terapeutaActual && (
+        <RevisionTareas terapeutaIdActual={terapeutaActual} />
+      )}
+    </ScrollView>
   );
 }
 
@@ -80,7 +86,7 @@ const styles = StyleSheet.create({
   },
   loginContainer: {
     padding: 20,
-    backgroundColor: '#e6f7ff', // Un color azulito para diferenciarlo
+    backgroundColor: '#e6f7ff', 
     borderRadius: 10,
     marginHorizontal: 10,
     borderWidth: 1,
