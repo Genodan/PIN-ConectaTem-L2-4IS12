@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Button, Alert, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { obtenerTodosLosPacientes, obtenerTareasPendientes, enviarPractica } from '../../services/tareasService';
 
 export default function InicioFamilia() {
@@ -8,6 +9,7 @@ export default function InicioFamilia() {
   const [pacienteActual, setPacienteActual] = useState<string | null>(null);
   const [tareas, setTareas] = useState<any[]>([]);
   const [tareaSeleccionada, setTareaSeleccionada] = useState<string | null>(null);
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState<{ uri: string; name: string } | null>(null);
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
 
@@ -38,19 +40,45 @@ export default function InicioFamilia() {
       const datos = await obtenerTareasPendientes(pacienteActual);
       setTareas(datos || []);
       setTareaSeleccionada(null);
+      setArchivoSeleccionado(null);
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
   };
 
+  // Abrir el selector de archivos del dispositivo/PC
+  const seleccionarArchivo = async () => {
+    try {
+      const resultado = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // Permite cualquier tipo de archivo (vídeo, audio, PDF, etc.)
+        copyToCacheDirectory: true,
+      });
+
+      if (!resultado.canceled && resultado.assets && resultado.assets.length > 0) {
+        const file = resultado.assets[0];
+        setArchivoSeleccionado({
+          uri: file.uri,
+          name: file.name,
+        });
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+    }
+  };
+
   const manejarEnvioVideo = async (tareaId: string) => {
+    if (!archivoSeleccionado) {
+      Alert.alert('Aviso', 'Por favor, selecciona un archivo o vídeo antes de enviar.');
+      return;
+    }
+
     setEnviando(true);
     try {
-      const urlSimulada = 'https://ejemplo.com/videos/clip_practica.mp4';
-      await enviarPractica(tareaId, urlSimulada);
+      // Guardamos la ruta/nombre del archivo seleccionado en la columna video_url
+      await enviarPractica(tareaId, archivoSeleccionado.name || archivoSeleccionado.uri);
       
-      Alert.alert('¡Éxito!', 'Práctica enviada correctamente.');
-      await cargarTareas(); // Refresca y desaparece de la lista de pendientes
+      Alert.alert('¡Éxito!', `Archivo "${archivoSeleccionado.name}" enviado correctamente.`);
+      await cargarTareas(); // Refresca la lista y pasa la tarea a completada
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {
@@ -64,6 +92,7 @@ export default function InicioFamilia() {
 
   return (
     <ScrollView style={styles.container}>
+      {/* LOGIN SIMULADO */}
       <View style={styles.loginContainer}>
         <Text style={styles.tituloSecundario}>¿Qué familia eres? (Simulación Login)</Text>
         <View style={styles.pickerContainer}>
@@ -96,7 +125,10 @@ export default function InicioFamilia() {
             <View key={tarea.id} style={styles.tarjetaTarea}>
               <TouchableOpacity 
                 style={styles.cabeceraTarea} 
-                onPress={() => setTareaSeleccionada(esSeleccionada ? null : tarea.id)}
+                onPress={() => {
+                  setTareaSeleccionada(esSeleccionada ? null : tarea.id);
+                  setArchivoSeleccionado(null); // Resetea el archivo al cambiar de tarea
+                }}
               >
                 <Text style={styles.tituloModulo}>{modulo?.titulo || 'Módulo asignado'}</Text>
                 <Text style={styles.estadoBadge}>{tarea.estado}</Text>
@@ -113,12 +145,29 @@ export default function InicioFamilia() {
                   <Text style={styles.label}>Vídeo Guía:</Text>
                   <Text style={styles.enlace}>{modulo?.video_guia_url || 'Sin enlace'}</Text>
 
+                  {/* SECCIÓN DE SELECCIÓN DE ARCHIVO */}
+                  <View style={styles.seccionArchivo}>
+                    <Text style={styles.label}>Adjuntar vídeo o archivo de práctica:</Text>
+                    
+                    <TouchableOpacity style={styles.botonAdjuntar} onPress={seleccionarArchivo}>
+                      <Text style={styles.textoBotonAdjuntar}>
+                        📁 {archivoSeleccionado ? "Cambiar archivo" : "Seleccionar archivo/vídeo"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {archivoSeleccionado && (
+                      <Text style={styles.textoArchivoSeleccionado}>
+                        Selected: <Text style={{ fontWeight: 'bold' }}>{archivoSeleccionado.name}</Text>
+                      </Text>
+                    )}
+                  </View>
+
                   <View style={styles.botonContainer}>
                     <Button 
-                      title={enviando ? "Enviando..." : "📷 Grabar y Enviar Vídeo"} 
+                      title={enviando ? "Enviando..." : "📤 Enviar Práctica"} 
                       color="#28a745"
                       onPress={() => manejarEnvioVideo(tarea.id)}
-                      disabled={enviando}
+                      disabled={enviando || !archivoSeleccionado}
                     />
                   </View>
                 </View>
@@ -148,5 +197,9 @@ const styles = StyleSheet.create({
   label: { fontWeight: 'bold', marginTop: 10, color: '#555' },
   texto: { color: '#333', marginBottom: 5 },
   enlace: { color: '#007bff', textDecorationLine: 'underline', marginBottom: 15 },
-  botonContainer: { marginTop: 10 }
+  seccionArchivo: { marginVertical: 10, padding: 10, backgroundColor: '#f9f9f9', borderRadius: 5, borderWidth: 1, borderColor: '#e0e0e0' },
+  botonAdjuntar: { backgroundColor: '#e9ecef', padding: 10, borderRadius: 5, alignItems: 'center', marginTop: 5 },
+  textoBotonAdjuntar: { color: '#495057', fontWeight: 'bold' },
+  textoArchivoSeleccionado: { marginTop: 8, color: '#28a745', fontSize: 13 },
+  botonContainer: { marginTop: 15 }
 });
