@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import { Picker } from '@react-native-picker/picker';
 import { AsignacionPacientes } from '../../components/AsignacionPacientes';
 import { RevisionTareas } from '../../components/RevisionTareas'; // <-- 1. IMPORTACIÓN AÑADIDA
+import { CrearPractica } from '../../components/CrearPractica';
 import { supabase } from '../../utils/supabase';
 
 export default function InicioTerapeuta() {
@@ -68,6 +69,11 @@ export default function InicioTerapeuta() {
       
       {terapeutaActual && (
         <AsignacionPacientes terapeutaIdActual={terapeutaActual} />
+      )}
+
+      {/* CREAR PRÁCTICA (UT 1094): asignar un módulo a un paciente */}
+      {terapeutaActual && (
+        <CrearPractica terapeutaIdActual={terapeutaActual} />
       )}
 
       {/* 3. SECCIÓN DE BANDEJA DE ENTRADA (Tareas completadas) */}
