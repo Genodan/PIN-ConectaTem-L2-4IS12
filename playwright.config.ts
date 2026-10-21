@@ -19,6 +19,8 @@ export default defineConfig({
     url: 'http://127.0.0.1:8081',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { CI: '1' },
+    // Las e2e usan siempre el modo demo (sin Supabase), aunque haya un .env.local:
+    // las variables vacías tienen prioridad sobre las del fichero.
+    env: { CI: '1', EXPO_PUBLIC_SUPABASE_URL: '', EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '' },
   },
 });
