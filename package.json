@@ -6,6 +6,8 @@
     "@react-native-picker/picker": "2.11.4",
     "@supabase/supabase-js": "^2.117.3",
     "expo": "~57.0.26",
+    "expo-asset": "~57.0.20",
+    "expo-audio": "~57.0.5",
     "expo-constants": "~57.0.20",
     "expo-document-picker": "~57.0.3",
     "expo-linking": "~57.0.11",

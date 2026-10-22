@@ -1,0 +1,104 @@
+import { render, screen } from '@testing-library/react-native';
+
+import { VerFeedback, formatearTiempo } from '../src/components/VerFeedback';
+import { obtenerPracticasConFeedback, obtenerUrlAudio } from '../src/services/feedbackService';
+
+jest.mock('../src/services/feedbackService', () => ({
+  obtenerPracticasConFeedback: jest.fn(),
+  obtenerUrlAudio: jest.fn(),
+}));
+jest.mock('expo-audio', () => ({
+  useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn(), seekTo: jest.fn() }),
+  useAudioPlayerStatus: () => ({ playing: false, didJustFinish: false, currentTime: 12, duration: 78 }),
+}));
+
+const practicas = obtenerPracticasConFeedback as jest.Mock;
+const urlAudio = obtenerUrlAudio as jest.Mock;
+
+const feedback = {
+  audio_url: 't1.m4a',
+  enviado_en: '2026-10-20T10:00:00Z',
+  fecha_evaluacion: null,
+  insignia: 'Familia Constante',
+};
+
+// Prueba de aceptación (UT 1352): Marta abre la práctica con feedback y puede escuchar la nota de voz de Elena.
+describe('Ver feedback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('muestra la práctica, quién responde, la insignia y el botón para escuchar la nota de voz', async () => {
+    practicas.mockResolvedValue([{ id: 't1', modulo: 'El Espejo', terapeuta: 'Elena Ferrer', feedback }]);
+    urlAudio.mockResolvedValue('https://firmada/audio');
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('El Espejo')).toBeOnTheScreen();
+    expect(screen.getByText(/Feedback de Elena Ferrer/)).toBeOnTheScreen();
+    expect(screen.getByText('⭐ Familia Constante')).toBeOnTheScreen();
+    expect(await screen.findByText('▶ Escuchar nota de voz')).toBeOnTheScreen();
+    expect(practicas).toHaveBeenCalledWith('pac-1');
+    expect(urlAudio).toHaveBeenCalledWith('t1.m4a');
+  });
+
+  it('muestra el tiempo reproducido y la duración del audio', async () => {
+    practicas.mockResolvedValue([{ id: 't1', modulo: 'El Espejo', terapeuta: 'Elena Ferrer', feedback }]);
+    urlAudio.mockResolvedValue('https://firmada/audio');
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('0:12 / 1:18')).toBeOnTheScreen();
+  });
+
+  it('no muestra insignia si el feedback no la tiene y usa un nombre genérico si no consta la terapeuta', async () => {
+    practicas.mockResolvedValue([
+      { id: 't2', modulo: 'El Reloj de la Calma', terapeuta: null, feedback: { ...feedback, insignia: null } },
+    ]);
+    urlAudio.mockResolvedValue('https://firmada/audio');
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText(/Feedback de la terapeuta ·/)).toBeOnTheScreen();
+    expect(screen.queryByText(/⭐/)).toBeNull();
+  });
+
+  it('avisa si todavía no hay feedback', async () => {
+    practicas.mockResolvedValue([]);
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText(/Todavía no hay feedback/)).toBeOnTheScreen();
+  });
+
+  it('avisa si la práctica tiene feedback pero sin audio', async () => {
+    practicas.mockResolvedValue([{ id: 't2', modulo: 'Manos a la Obra', terapeuta: null, feedback: null }]);
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('La terapeuta todavía no ha adjuntado el audio.')).toBeOnTheScreen();
+    expect(urlAudio).not.toHaveBeenCalled();
+  });
+
+  it('muestra el error si no se puede cargar el feedback', async () => {
+    practicas.mockRejectedValue(new Error('Error al cargar el feedback: sin conexión'));
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('Error al cargar el feedback: sin conexión')).toBeOnTheScreen();
+  });
+});
+
+describe('formatearTiempo', () => {
+  it('da formato minutos:segundos', () => {
+    expect(formatearTiempo(0)).toBe('0:00');
+    expect(formatearTiempo(9)).toBe('0:09');
+    expect(formatearTiempo(78)).toBe('1:18');
+    expect(formatearTiempo(600)).toBe('10:00');
+  });
+
+  it('no falla si la duración todavía no se conoce', () => {
+    expect(formatearTiempo(NaN)).toBe('0:00');
+    expect(formatearTiempo(-3)).toBe('0:00');
+  });
+});

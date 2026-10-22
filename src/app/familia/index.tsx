@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Button, Al
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { obtenerTodosLosPacientes, obtenerTareasPendientes, enviarPractica } from '../../services/tareasService';
+import { VerFeedback } from '../../components/VerFeedback';
 
 export default function InicioFamilia() {
   const [pacientes, setPacientes] = useState<any[]>([]);
@@ -176,6 +177,9 @@ export default function InicioFamilia() {
           );
         })
       )}
+
+      {/* VER FEEDBACK (UT 1352): notas de voz de la terapeuta */}
+      <VerFeedback pacienteId={pacienteActual} />
     </ScrollView>
   );
 }
