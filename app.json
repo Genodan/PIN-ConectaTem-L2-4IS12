@@ -27,7 +27,14 @@
       "expo-status-bar",
       "expo-sqlite",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Se necesita acceso a la cámara para grabar el vídeo de la tarea.",
+          "microphonePermission": "Se necesita acceso al micrófono para grabar el vídeo de la tarea."
+        }
+      ]
     ]
   }
 }

@@ -37,7 +37,7 @@ describe('Servicio de Tareas - Realizar Prácticas', () => {
     expect(supabase.from).toHaveBeenCalledWith('tareas');
     expect(mockEqPaciente).toHaveBeenCalledWith('paciente_id', 'pac-123');
     expect(mockEqEstado).toHaveBeenCalledWith('estado', 'pendientes');
-    expect(resultado[0].modulos.titulo).toBe('Pedir más');
+    expect((resultado[0].modulos as any).titulo).toBe('Pedir más');
   });
 
   it('debe cambiar el estado de la tarea a completada al enviar el vídeo', async () => {
