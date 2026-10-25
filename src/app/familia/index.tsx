@@ -323,7 +323,8 @@ export default function InicioFamilia() {
 
     setEnviando(true);
     try {
-      await enviarPractica(tareaId, archivoSeleccionado.name || archivoSeleccionado.uri);
+      // IMPORTANTE: Le pasamos la URI real para que el servicio pueda extraer el archivo físico
+      await enviarPractica(tareaId, archivoSeleccionado.uri);
       mostrarAlerta('¡Éxito!', `"${archivoSeleccionado.name}" enviado correctamente.`);
       await cargarTareas();
     } catch (error: any) {

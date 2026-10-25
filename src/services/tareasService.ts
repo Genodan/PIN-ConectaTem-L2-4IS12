@@ -39,28 +39,60 @@ export const obtenerTareasPendientes = async (pacienteId: string) => {
   return data;
 };
 
-// 3. Enviar la práctica y cambiar el estado a 'completada'
-export const enviarPractica = async (tareaId: string, videoUrl: string) => {
-  const { data, error } = await supabase
-    .from('tareas')
-    .update({ 
-      estado: 'completada', 
-      video_url: videoUrl,
-      fecha_envio: new Date().toISOString()
-    })
-    .eq('id', tareaId)
-    .select();
+// 3. Subir el archivo a Storage y luego actualizar la tarea a 'completada'
+export const enviarPractica = async (tareaId: string, archivoUri: string) => {
+  try {
+    // 1. Transformar el archivo local (o de la web) en un formato Blob
+    const response = await fetch(archivoUri);
+    const blob = await response.blob();
 
-  if (error) {
-    console.error('Error al enviar práctica:', error);
-    throw new Error('Error al enviar la práctica: ' + error.message);
+    // 2. Extraer la extensión de forma segura desde el "tipo" real del archivo (MIME type)
+    const mimeType = blob.type || 'video/mp4';
+    
+    // Si es "video/webm;codecs=vp9", nos quedamos solo con la palabra "webm"
+    let extension = mimeType.split('/')[1]?.split(';')[0] || 'mp4';
+    
+    // Limpiamos cualquier carácter raro de la extensión por seguridad
+    extension = extension.replace(/[^a-zA-Z0-9]/g, '');
+
+    // 3. Crear un nombre de archivo completamente limpio
+    const nombreArchivo = `tarea_${tareaId}_${Date.now()}.${extension}`;
+
+    // 4. Subir el archivo al bucket 'videos-practicas' de Supabase
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('videos-practicas')
+      .upload(nombreArchivo, blob, {
+        contentType: mimeType, // Le decimos a Supabase el tipo exacto de vídeo
+      });
+
+    if (uploadError) throw new Error('Fallo al subir el vídeo: ' + uploadError.message);
+
+    // 5. Obtener la URL pública y accesible desde cualquier dispositivo
+    const { data: publicUrlData } = supabase.storage
+      .from('videos-practicas')
+      .getPublicUrl(nombreArchivo);
+
+    const videoUrlPublica = publicUrlData.publicUrl;
+
+    // 6. Guardar la URL pública en la tabla tareas
+    const { data, error } = await supabase
+      .from('tareas')
+      .update({ 
+        estado: 'completada', 
+        video_url: videoUrlPublica,
+        fecha_envio: new Date().toISOString()
+      })
+      .eq('id', tareaId)
+      .select();
+
+    if (error) throw new Error('Error al actualizar la tarea: ' + error.message);
+    if (!data || data.length === 0) throw new Error('No se pudo actualizar la tarea en Supabase.');
+
+    return data[0];
+  } catch (error: any) {
+    console.error("Error en enviarPractica:", error);
+    throw error;
   }
-
-  if (!data || data.length === 0) {
-    throw new Error('No se pudo actualizar la tarea en Supabase.');
-  }
-
-  return data[0];
 };
 
 // 4. Obtener las tareas completadas (Bandeja de entrada del terapeuta)
