@@ -7,11 +7,20 @@ export const ESTADO_PRACTICA_CON_FEEDBACK = 'evaluada';
 export const BUCKET_FEEDBACK = 'feedbacks';
 const SEGUNDOS_URL_FIRMADA = 3600;
 
+// Resumen que la terapeuta (o la IA, en el Sprint 2) deja por escrito junto al audio
+export interface ResumenEstructurado {
+  punto_fuerte?: string | null;
+  a_mejorar?: string | null;
+  foco_semana?: string | null;
+}
+
 export interface FeedbackResumen {
   audio_url: string | null;
   enviado_en: string | null;
   fecha_evaluacion: string | null;
   insignia: string | null;
+  transcripcion: string | null;
+  resumen_estructurado: ResumenEstructurado | null;
 }
 
 export interface PracticaConFeedback {
@@ -51,7 +60,7 @@ export const obtenerPracticasConFeedback = async (pacienteId: string): Promise<P
       id,
       modulos ( titulo ),
       terapeutas ( nombre ),
-      feedbacks ( audio_url, enviado_en, fecha_evaluacion, insignia, terapeutas ( nombre ) )
+      feedbacks ( audio_url, enviado_en, fecha_evaluacion, insignia, transcripcion, resumen_estructurado, terapeutas ( nombre ) )
     `,
     )
     .eq('paciente_id', pacienteId)
@@ -73,6 +82,8 @@ export const obtenerPracticasConFeedback = async (pacienteId: string): Promise<P
             enviado_en: fb.enviado_en,
             fecha_evaluacion: fb.fecha_evaluacion,
             insignia: fb.insignia,
+            transcripcion: fb.transcripcion ?? null,
+            resumen_estructurado: fb.resumen_estructurado ?? null,
           }
         : null,
     };

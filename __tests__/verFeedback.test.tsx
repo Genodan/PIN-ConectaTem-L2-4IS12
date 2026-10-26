@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 
-import { VerFeedback, formatearTiempo } from '../src/components/VerFeedback';
+import { VerFeedback, formatearTiempo, textoInsignia } from '../src/components/VerFeedback';
 import { obtenerPracticasConFeedback, obtenerUrlAudio } from '../src/services/feedbackService';
 
 jest.mock('../src/services/feedbackService', () => ({
@@ -20,6 +20,8 @@ const feedback = {
   enviado_en: '2026-10-20T10:00:00Z',
   fecha_evaluacion: null,
   insignia: 'Familia Constante',
+  transcripcion: null,
+  resumen_estructurado: null,
 };
 
 // Prueba de aceptación (UT 1352): Marta abre la práctica con feedback y puede escuchar la nota de voz de Elena.
@@ -40,6 +42,34 @@ describe('Ver feedback', () => {
     expect(await screen.findByText('▶ Escuchar nota de voz')).toBeOnTheScreen();
     expect(practicas).toHaveBeenCalledWith('pac-1');
     expect(urlAudio).toHaveBeenCalledWith('t1.m4a');
+  });
+
+  it('muestra el resumen por apartados junto al audio, sin los apartados vacíos', async () => {
+    const resumen = { punto_fuerte: 'Hugo mira antes de pedir.', a_mejorar: null, foco_semana: 'Pompero 5 minutos al día.' };
+    practicas.mockResolvedValue([
+      { id: 't1', modulo: 'El Espejo', terapeuta: 'Elena Ferrer', feedback: { ...feedback, resumen_estructurado: resumen } },
+    ]);
+    urlAudio.mockResolvedValue('https://firmada/audio');
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('Lo que ha ido bien')).toBeOnTheScreen();
+    expect(screen.getByText('Hugo mira antes de pedir.')).toBeOnTheScreen();
+    expect(screen.getByText('Foco de la semana')).toBeOnTheScreen();
+    expect(screen.queryByText('A mejorar')).toBeNull();
+    expect(await screen.findByText('▶ Escuchar nota de voz')).toBeOnTheScreen();
+  });
+
+  it('si no hay resumen, muestra la transcripción', async () => {
+    practicas.mockResolvedValue([
+      { id: 't1', modulo: 'El Espejo', terapeuta: 'Elena Ferrer', feedback: { ...feedback, transcripcion: 'Marta, muy bien. Hugo ha mirado el pompero.' } },
+    ]);
+    urlAudio.mockResolvedValue('https://firmada/audio');
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('Marta, muy bien. Hugo ha mirado el pompero.')).toBeOnTheScreen();
+    expect(screen.queryByText('Lo que ha ido bien')).toBeNull();
   });
 
   it('muestra el tiempo reproducido y la duración del audio', async () => {
@@ -86,6 +116,14 @@ describe('Ver feedback', () => {
     await render(<VerFeedback pacienteId="pac-1" />);
 
     expect(await screen.findByText('Error al cargar el feedback: sin conexión')).toBeOnTheScreen();
+  });
+});
+
+describe('textoInsignia', () => {
+  it('añade la estrella solo si la insignia no trae ya su emoji', () => {
+    expect(textoInsignia('Familia Constante')).toBe('⭐ Familia Constante');
+    expect(textoInsignia('⭐ Familia Constante')).toBe('⭐ Familia Constante');
+    expect(textoInsignia('💪 Gran esfuerzo')).toBe('💪 Gran esfuerzo');
   });
 });
 

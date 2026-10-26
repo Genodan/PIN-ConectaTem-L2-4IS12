@@ -50,6 +50,8 @@ describe('Servicio de Feedback - Ver feedback', () => {
             enviado_en: '2026-10-20T10:00:00Z',
             fecha_evaluacion: null,
             insignia: 'Familia Constante',
+            transcripcion: 'Marta, muy bien.',
+            resumen_estructurado: { punto_fuerte: 'Hugo mira antes de pedir.' },
             terapeutas: { nombre: 'Elena Ferrer' },
           },
         },
@@ -80,11 +82,16 @@ describe('Servicio de Feedback - Ver feedback', () => {
       enviado_en: '2026-10-20T10:00:00Z',
       fecha_evaluacion: null,
       insignia: 'Familia Constante',
+      transcripcion: 'Marta, muy bien.',
+      resumen_estructurado: { punto_fuerte: 'Hugo mira antes de pedir.' },
     });
     expect(resultado[1].modulo).toBe('El Reloj de la Calma');
     expect(resultado[1].terapeuta).toBe('Javier Ortega');
     expect(resultado[1].feedback?.audio_url).toBe('t2.m4a');
     expect(resultado[1].feedback?.insignia).toBeNull();
+    // Si el feedback no trae texto, los campos quedan en null (no undefined)
+    expect(resultado[1].feedback?.transcripcion).toBeNull();
+    expect(resultado[1].feedback?.resumen_estructurado).toBeNull();
   });
 
   it('si el feedback no indica terapeuta, usa la de la práctica', async () => {

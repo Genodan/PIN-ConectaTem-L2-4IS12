@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import {
+  FeedbackResumen,
   PracticaConFeedback,
   obtenerPracticasConFeedback,
   obtenerUrlAudio,
@@ -10,6 +11,10 @@ import {
 const textoDeError = (error: unknown) => (error instanceof Error ? error.message : 'Error desconocido');
 
 const formatearFecha = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-ES') : null);
+
+// Algunas insignias ya traen su emoji («⭐ Familia Constante»): solo se añade la estrella si falta
+export const textoInsignia = (insignia: string) =>
+  /^[←-⯿\uD800-\uDBFF]/.test(insignia) ? insignia : `⭐ ${insignia}`;
 
 // 78 segundos -> «1:18». Si la duración aún no se conoce (NaN) devuelve «0:00».
 export const formatearTiempo = (segundos: number) => {
@@ -45,6 +50,39 @@ const Reproductor = ({ url }: { url: string }) => {
       </Text>
     </View>
   );
+};
+
+const SECCIONES_RESUMEN = [
+  { clave: 'punto_fuerte', titulo: 'Lo que ha ido bien' },
+  { clave: 'a_mejorar', titulo: 'A mejorar' },
+  { clave: 'foco_semana', titulo: 'Foco de la semana' },
+] as const;
+
+// Comentario escrito: el resumen por apartados y, si no lo hay, la transcripción completa
+const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
+  const resumen = feedback?.resumen_estructurado;
+  const secciones = SECCIONES_RESUMEN.filter(({ clave }) => resumen?.[clave]);
+
+  if (secciones.length > 0) {
+    return (
+      <View style={styles.comentario}>
+        {secciones.map(({ clave, titulo }) => (
+          <View key={clave} style={styles.seccion}>
+            <Text style={styles.seccionTitulo}>{titulo}</Text>
+            <Text style={styles.seccionTexto}>{resumen?.[clave]}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  }
+  if (feedback?.transcripcion) {
+    return (
+      <View style={styles.comentario}>
+        <Text style={styles.seccionTexto}>{feedback.transcripcion}</Text>
+      </View>
+    );
+  }
+  return null;
 };
 
 // Pide la URL temporal del audio y muestra el reproductor cuando la tiene
@@ -115,8 +153,9 @@ export const VerFeedback = ({ pacienteId }: { pacienteId: string | null }) => {
               <Text style={styles.estado}>Con feedback</Text>
             </View>
             <Text style={styles.fecha}>{fecha ? `${autor} · ${fecha}` : autor}</Text>
-            {insignia ? <Text style={styles.insignia}>⭐ {insignia}</Text> : null}
+            {insignia ? <Text style={styles.insignia}>{textoInsignia(insignia)}</Text> : null}
             <NotaDeVoz rutaAudio={practica.feedback?.audio_url ?? null} />
+            <ComentarioEscrito feedback={practica.feedback} />
           </View>
         );
       })}
@@ -138,5 +177,9 @@ const styles = StyleSheet.create({
   barraProgreso: { height: 6, backgroundColor: '#389e0d' },
   tiempo: { color: '#888', fontSize: 12, marginTop: 4, textAlign: 'right' },
   aviso: { fontStyle: 'italic', color: '#666' },
+  comentario: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#eee' },
+  seccion: { marginBottom: 10 },
+  seccionTitulo: { fontSize: 12, fontWeight: 'bold', color: '#555', marginBottom: 2 },
+  seccionTexto: { fontSize: 14, color: '#333', lineHeight: 20 },
   error: { color: '#a8071a', fontWeight: 'bold' },
 });
