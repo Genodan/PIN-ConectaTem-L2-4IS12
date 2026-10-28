@@ -59,30 +59,37 @@ const SECCIONES_RESUMEN = [
 ] as const;
 
 // Comentario escrito: el resumen por apartados y, si no lo hay, la transcripción completa
+// La transcripción de Gemini puede traer viñetas con «*»: se muestran como «•»
+const limpiarTranscripcion = (texto: string) => texto.replace(/^\s*[*-]\s+/gm, '• ').trim();
+
 const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
+  const [verTranscripcion, setVerTranscripcion] = useState(false);
   const resumen = feedback?.resumen_estructurado;
   const secciones = SECCIONES_RESUMEN.filter(({ clave }) => resumen?.[clave]);
+  const transcripcion = feedback?.transcripcion ? limpiarTranscripcion(feedback.transcripcion) : null;
 
-  if (secciones.length > 0) {
-    return (
-      <View style={styles.comentario}>
-        {secciones.map(({ clave, titulo }) => (
-          <View key={clave} style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{titulo}</Text>
-            <Text style={styles.seccionTexto}>{resumen?.[clave]}</Text>
-          </View>
-        ))}
-      </View>
-    );
-  }
-  if (feedback?.transcripcion) {
-    return (
-      <View style={styles.comentario}>
-        <Text style={styles.seccionTexto}>{feedback.transcripcion}</Text>
-      </View>
-    );
-  }
-  return null;
+  if (secciones.length === 0 && !transcripcion) return null;
+
+  return (
+    <View style={styles.comentario}>
+      {secciones.map(({ clave, titulo }) => (
+        <View key={clave} style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>{titulo}</Text>
+          <Text style={styles.seccionTexto}>{resumen?.[clave]}</Text>
+        </View>
+      ))}
+      {/* Con resumen, la transcripción completa se abre a demanda; sin resumen se muestra directamente */}
+      {transcripcion && secciones.length > 0 && (
+        <Button
+          title={verTranscripcion ? 'Ocultar transcripción' : 'Ver transcripción'}
+          onPress={() => setVerTranscripcion((visible) => !visible)}
+        />
+      )}
+      {transcripcion && (secciones.length === 0 || verTranscripcion) && (
+        <Text style={styles.seccionTexto}>{transcripcion}</Text>
+      )}
+    </View>
+  );
 };
 
 // Pide la URL temporal del audio y muestra el reproductor cuando la tiene

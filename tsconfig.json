@@ -14,6 +14,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "prototipo1"
+    "prototipo1",
+    "supabase/functions"
   ]
 }

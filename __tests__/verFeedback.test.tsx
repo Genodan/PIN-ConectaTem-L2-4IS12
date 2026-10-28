@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { VerFeedback, formatearTiempo, textoInsignia } from '../src/components/VerFeedback';
 import { obtenerPracticasConFeedback, obtenerUrlAudio } from '../src/services/feedbackService';
@@ -58,6 +58,29 @@ describe('Ver feedback', () => {
     expect(screen.getByText('Foco de la semana')).toBeOnTheScreen();
     expect(screen.queryByText('A mejorar')).toBeNull();
     expect(await screen.findByText('▶ Escuchar nota de voz')).toBeOnTheScreen();
+  });
+
+  it('con resumen y transcripción, la transcripción se abre con el botón y las viñetas salen como «•»', async () => {
+    const resumen = { punto_fuerte: 'Hugo mira antes de pedir.', a_mejorar: null, foco_semana: null };
+    practicas.mockResolvedValue([
+      {
+        id: 't1',
+        modulo: 'El Espejo',
+        terapeuta: 'Elena Ferrer',
+        feedback: { ...feedback, resumen_estructurado: resumen, transcripcion: 'Hola Marta:\n\n* Lo que más me ha gustado.' },
+      },
+    ]);
+    urlAudio.mockResolvedValue('https://firmada/audio');
+
+    await render(<VerFeedback pacienteId="pac-1" />);
+
+    expect(await screen.findByText('Hugo mira antes de pedir.')).toBeOnTheScreen();
+    expect(screen.queryByText(/Lo que más me ha gustado/)).toBeNull();
+
+    await fireEvent.press(screen.getByText('Ver transcripción'));
+
+    expect(await screen.findByText(/• Lo que más me ha gustado/)).toBeOnTheScreen();
+    expect(screen.getByText('Ocultar transcripción')).toBeOnTheScreen();
   });
 
   it('si no hay resumen, muestra la transcripción', async () => {
