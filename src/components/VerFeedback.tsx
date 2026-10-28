@@ -62,7 +62,7 @@ const SECCIONES_RESUMEN = [
 // La transcripción de Gemini puede traer viñetas con «*»: se muestran como «•»
 const limpiarTranscripcion = (texto: string) => texto.replace(/^\s*[*-]\s+/gm, '• ').trim();
 
-const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
+export const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
   const [verTranscripcion, setVerTranscripcion] = useState(false);
   const resumen = feedback?.resumen_estructurado;
   const secciones = SECCIONES_RESUMEN.filter(({ clave }) => resumen?.[clave]);
@@ -93,7 +93,7 @@ const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) =
 };
 
 // Pide la URL temporal del audio y muestra el reproductor cuando la tiene
-const NotaDeVoz = ({ rutaAudio }: { rutaAudio: string | null }) => {
+export const NotaDeVoz = ({ rutaAudio }: { rutaAudio: string | null }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);

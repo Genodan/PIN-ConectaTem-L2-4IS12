@@ -4,11 +4,18 @@ import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import InicioFamilia from '../src/app/familia/index';
 import { obtenerTodosLosPacientes, obtenerTareasPendientes, enviarPractica } from '../src/services/tareasService';
+import { obtenerPracticasDelPaciente } from '../src/services/panelFamiliaService';
 
 jest.mock('../src/services/tareasService', () => ({
   obtenerTodosLosPacientes: jest.fn(),
   obtenerTareasPendientes: jest.fn(),
   enviarPractica: jest.fn(),
+}));
+
+// UT 1141: la pantalla lee todas las prácticas del paciente con este servicio
+jest.mock('../src/services/panelFamiliaService', () => ({
+  ...jest.requireActual('../src/services/panelFamiliaService'),
+  obtenerPracticasDelPaciente: jest.fn(),
 }));
 
 jest.mock('../src/components/VerFeedback', () => ({
@@ -48,6 +55,7 @@ describe('Entrega de Tarea - Grabar y Enviar Vídeo', () => {
     jest.clearAllMocks();
     (obtenerTodosLosPacientes as jest.Mock).mockResolvedValue(pacientesMock);
     (obtenerTareasPendientes as jest.Mock).mockResolvedValue(tareasMock);
+    (obtenerPracticasDelPaciente as jest.Mock).mockResolvedValue(tareasMock);
   });
 
   it('muestra el botón de grabar al lado de seleccionar archivo al desplegar una tarea', async () => {
