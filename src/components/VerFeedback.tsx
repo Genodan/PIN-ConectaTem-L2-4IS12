@@ -59,7 +59,7 @@ const SECCIONES_RESUMEN = [
 ] as const;
 
 // Comentario escrito: el resumen por apartados y, si no lo hay, la transcripción completa
-const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
+export const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
   const resumen = feedback?.resumen_estructurado;
   const secciones = SECCIONES_RESUMEN.filter(({ clave }) => resumen?.[clave]);
 
@@ -86,7 +86,7 @@ const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) =
 };
 
 // Pide la URL temporal del audio y muestra el reproductor cuando la tiene
-const NotaDeVoz = ({ rutaAudio }: { rutaAudio: string | null }) => {
+export const NotaDeVoz = ({ rutaAudio }: { rutaAudio: string | null }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
