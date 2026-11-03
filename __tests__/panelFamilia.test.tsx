@@ -4,6 +4,11 @@ import InicioFamilia from '../src/app/familia/index';
 
 // Prueba de aceptación de la UT 1141 "Panel principal de la familia" (Worki).
 // La base de datos se simula: no se tocan datos reales de Supabase.
+jest.mock('expo-audio', () => ({
+  useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn(), seekTo: jest.fn() }),
+  useAudioPlayerStatus: () => ({ playing: false, didJustFinish: false, currentTime: 0, duration: 0 }),
+}));
+
 jest.mock('../src/services/tareasService', () => ({
   obtenerTodosLosPacientes: jest.fn(async () => [
     { id: 'hugo', nombre_nino: 'Hugo', nombre_familia: 'Marta Sanchis' },

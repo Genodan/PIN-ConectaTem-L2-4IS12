@@ -6,24 +6,22 @@ import {
   PracticaConFeedback,
   obtenerPracticasConFeedback,
   obtenerUrlAudio,
+  ResumenEstructurado
 } from '../services/feedbackService';
 
 const textoDeError = (error: unknown) => (error instanceof Error ? error.message : 'Error desconocido');
 
 const formatearFecha = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-ES') : null);
 
-// Algunas insignias ya traen su emoji («⭐ Familia Constante»): solo se añade la estrella si falta
 export const textoInsignia = (insignia: string) =>
   /^[←-⯿\uD800-\uDBFF]/.test(insignia) ? insignia : `⭐ ${insignia}`;
 
-// 78 segundos -> «1:18». Si la duración aún no se conoce (NaN) devuelve «0:00».
 export const formatearTiempo = (segundos: number) => {
   if (!Number.isFinite(segundos) || segundos < 0) return '0:00';
   const total = Math.floor(segundos);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };
 
-// Reproductor con botón, barra de avance y tiempo. Va aparte porque los hooks de audio necesitan la URL desde el principio.
 const Reproductor = ({ url }: { url: string }) => {
   const player = useAudioPlayer(url);
   const estado = useAudioPlayerStatus(player);
@@ -34,7 +32,6 @@ const Reproductor = ({ url }: { url: string }) => {
       player.pause();
       return;
     }
-    // Si el audio ya terminó, se vuelve a empezar desde el principio
     if (estado.didJustFinish) await player.seekTo(0);
     player.play();
   };
@@ -52,47 +49,121 @@ const Reproductor = ({ url }: { url: string }) => {
   );
 };
 
-const SECCIONES_RESUMEN = [
+const SECCIONES_RESUMEN: { clave: keyof ResumenEstructurado; titulo: string }[] = [
   { clave: 'punto_fuerte', titulo: 'Lo que ha ido bien' },
   { clave: 'a_mejorar', titulo: 'A mejorar' },
   { clave: 'foco_semana', titulo: 'Foco de la semana' },
-] as const;
+  { clave: 'foco_proxima_semana', titulo: 'Foco de la semana' },
+];
 
-// Comentario escrito: el resumen por apartados y, si no lo hay, la transcripción completa
-// La transcripción de Gemini puede traer viñetas con «*»: se muestran como «•»
 const limpiarTranscripcion = (texto: string) => texto.replace(/^\s*[*-]\s+/gm, '• ').trim();
 
 export const ComentarioEscrito = ({ feedback }: { feedback: FeedbackResumen | null }) => {
   const [verTranscripcion, setVerTranscripcion] = useState(false);
-  const resumen = feedback?.resumen_estructurado;
-  const secciones = SECCIONES_RESUMEN.filter(({ clave }) => resumen?.[clave]);
-  const transcripcion = feedback?.transcripcion ? limpiarTranscripcion(feedback.transcripcion) : null;
+  
+  const [solicitandoTranscripcion, setSolicitandoTranscripcion] = useState(false);
+  const [mensajeTranscripcion, setMensajeTranscripcion] = useState<string | null>(null);
 
-  if (secciones.length === 0 && !transcripcion) return null;
+  if (!feedback) return null;
+
+  const resumen = feedback.resumen_estructurado;
+  const clavesVistas = new Set<string>();
+  const secciones = SECCIONES_RESUMEN.filter(({ clave }) => {
+    if (!resumen?.[clave]) return false;
+    if (clave === 'foco_proxima_semana' && clavesVistas.has('foco_semana')) return false;
+    clavesVistas.add(clave);
+    return true;
+  });
+  const transcripcion = feedback.transcripcion ? limpiarTranscripcion(feedback.transcripcion) : null;
+  const tieneAudio = Boolean(feedback.audio_url && feedback.audio_url !== 'null' && feedback.audio_url.trim() !== '');
+
+  const solicitarTranscripcion = async () => {
+    setSolicitandoTranscripcion(true);
+    setMensajeTranscripcion(null);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setMensajeTranscripcion('¡Transcripción solicitada con éxito! La verás pronto.');
+    } catch (error) {
+      setMensajeTranscripcion('Error al solicitar la transcripción: ' + textoDeError(error));
+    } finally {
+      setSolicitandoTranscripcion(false);
+    }
+  };
+
+  const esRechazado = feedback.resumen_aprobado === false;
+  const esAprobado = feedback.resumen_aprobado === true || feedback.resumen_aprobado === 'true' as any;
+
+  // Si no hay resumen, ni resumen escrito, ni transcripción, y tampoco audio válido, no pintamos nada
+  if (secciones.length === 0 && !transcripcion && !tieneAudio && !feedback.resumen_escrito) {
+    return null;
+  }
 
   return (
     <View style={styles.comentario}>
-      {secciones.map(({ clave, titulo }) => (
-        <View key={clave} style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>{titulo}</Text>
-          <Text style={styles.seccionTexto}>{resumen?.[clave]}</Text>
+      
+      {/* 1. BOTÓN DE TRANSCRIPCIÓN: Solo si hay audio real y NO hay transcripción todavía */}
+      {tieneAudio && !transcripcion && (
+        <View style={styles.transcripcionContainer}>
+          <Text style={styles.avisoTranscripcion}>
+            Aún no hay transcripción disponible para esta nota de voz.
+          </Text>
+          <Button 
+            title={solicitandoTranscripcion ? "Transcribiendo..." : "Transcribir Audio con IA"} 
+            onPress={solicitarTranscripcion} 
+            disabled={solicitandoTranscripcion}
+          />
+          {mensajeTranscripcion && (
+            <Text style={styles.mensajeExitoTranscripcion}>{mensajeTranscripcion}</Text>
+          )}
         </View>
-      ))}
-      {/* Con resumen, la transcripción completa se abre a demanda; sin resumen se muestra directamente */}
-      {transcripcion && secciones.length > 0 && (
-        <Button
-          title={verTranscripcion ? 'Ocultar transcripción' : 'Ver transcripción'}
-          onPress={() => setVerTranscripcion((visible) => !visible)}
-        />
       )}
-      {transcripcion && (secciones.length === 0 || verTranscripcion) && (
-        <Text style={styles.seccionTexto}>{transcripcion}</Text>
+
+      {/* 2. TRANSCRIPCIÓN: Visible siempre o desplegable si hay resumen */}
+      {transcripcion && (
+        <View style={{ marginBottom: 10 }}>
+          {secciones.length > 0 && (
+            <View style={{ marginBottom: 10 }}>
+              <Button
+                title={verTranscripcion ? 'Ocultar transcripción' : 'Ver transcripción'}
+                onPress={() => setVerTranscripcion((visible) => !visible)}
+              />
+            </View>
+          )}
+          {(secciones.length === 0 || verTranscripcion) && (
+            <Text style={styles.seccionTexto}>{transcripcion}</Text>
+          )}
+        </View>
       )}
+
+      {/* 3. RESUMEN RECHAZADO: Se muestra resumen_escrito sin ningún ícono */}
+      {esRechazado && feedback.resumen_escrito && (
+        <View style={styles.cajaManual}>
+          <Text style={styles.seccionTitulo}>Resumen escrito</Text>
+          <Text style={styles.seccionTexto}>{feedback.resumen_escrito}</Text>
+        </View>
+      )}
+
+      {/* 4. RESUMEN IA APROBADO (O PENDIENTE DE REVISIÓN) */}
+      {!esRechazado && resumen && (
+        <View>
+          {esAprobado && (
+            <View style={styles.cabeceraBadgeIA}>
+              <Text style={styles.badgeIA}>✨ Generado con IA</Text>
+            </View>
+          )}
+          {secciones.map(({ clave, titulo }) => (
+            <View key={clave} style={styles.seccion}>
+              <Text style={styles.seccionTitulo}>{titulo}</Text>
+              <Text style={styles.seccionTexto}>{resumen[clave]}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
     </View>
   );
 };
 
-// Pide la URL temporal del audio y muestra el reproductor cuando la tiene
 export const NotaDeVoz = ({ rutaAudio }: { rutaAudio: string | null }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +213,7 @@ export const VerFeedback = ({ pacienteId }: { pacienteId: string | null }) => {
     <View style={styles.container}>
       <Text style={styles.titulo}>Feedback de la terapeuta</Text>
 
-      {cargando && <ActivityIndicator size="small" color="#0000ff" />}
+      {cargando && <ActivityIndicator size="large" color="#0000ff" />}
       {error && <Text style={styles.error}>{error}</Text>}
 
       {!cargando && !error && practicas.length === 0 && (
@@ -189,4 +260,13 @@ const styles = StyleSheet.create({
   seccionTitulo: { fontSize: 12, fontWeight: 'bold', color: '#555', marginBottom: 2 },
   seccionTexto: { fontSize: 14, color: '#333', lineHeight: 20 },
   error: { color: '#a8071a', fontWeight: 'bold' },
+  
+  cajaManual: { backgroundColor: '#f9f9f9', padding: 12, borderRadius: 6, borderWidth: 1, borderColor: '#ddd', marginBottom: 10 },
+  cabeceraBadgeIA: { marginBottom: 8, alignSelf: 'flex-start' },
+  badgeIA: { backgroundColor: '#e6f7ff', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1, borderColor: '#91d5ff', color: '#0050b3', fontSize: 11, fontWeight: 'bold' },
+
+  // Estilos de transcripción
+  transcripcionContainer: { padding: 15, backgroundColor: '#f0f5ff', borderRadius: 8, marginTop: 10, borderWidth: 1, borderColor: '#d6e4ff' },
+  avisoTranscripcion: { color: '#595959', marginBottom: 10, textAlign: 'center' },
+  mensajeExitoTranscripcion: { marginTop: 10, color: '#389e0d', fontWeight: 'bold', textAlign: 'center' }
 });

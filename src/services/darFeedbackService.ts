@@ -1,5 +1,7 @@
 import { supabase } from '../utils/supabase';
-import { BUCKET_FEEDBACK, ESTADO_PRACTICA_CON_FEEDBACK } from './feedbackService';
+
+export const BUCKET_FEEDBACK = 'feedbacks';
+export const ESTADO_PRACTICA_CON_FEEDBACK = 'evaluada';
 
 // Código de estado de una práctica que la familia ya ha enviado. En pantalla se muestra como «Enviada».
 export const ESTADO_PRACTICA_ENVIADA = 'completada';
@@ -169,3 +171,28 @@ export const enviarFeedback = async (
 
   return filas[0] as FeedbackGuardado;
 };
+
+export const aprobarResumenFeedback = async (
+  feedbackId: string,
+  resumenEditado: { punto_fuerte: string; a_mejorar: string; foco_proxima_semana: string }
+) => {
+  try {
+    const { data, error } = await supabase
+      .from('feedbacks')
+      .update({ 
+        resumen_estructurado: resumenEditado,
+        resumen_aprobado: true // Lo marcamos como visible para la familia
+      })
+      .eq('id', feedbackId)
+      .select();
+
+    if (error) throw new Error('Error al aprobar el resumen: ' + error.message);
+    if (!data || data.length === 0) throw new Error('No se pudo actualizar el feedback.');
+
+    return data[0];
+  } catch (error: any) {
+    console.error("Error en aprobarResumenFeedback:", error);
+    throw error;
+  }
+};
+

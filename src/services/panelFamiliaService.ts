@@ -55,7 +55,7 @@ export const obtenerPracticasDelPaciente = async (pacienteId: string): Promise<P
       fecha_asignacion,
       fecha_envio,
       modulos ( id, titulo, objetivo, video_guia_url, ideas_materiales ),
-      feedbacks ( audio_url, enviado_en, fecha_evaluacion, insignia, transcripcion, resumen_estructurado )
+      feedbacks ( id, audio_url, enviado_en, fecha_evaluacion, insignia, transcripcion, resumen_estructurado, resumen_aprobado, resumen_escrito )
     `,
     )
     .eq('paciente_id', pacienteId)
