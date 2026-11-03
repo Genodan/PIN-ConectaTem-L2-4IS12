@@ -24,19 +24,23 @@ describe('Componente FeedbackDePractica', () => {
     punto_fuerte: 'Le ha ido muy bien interactuando con los bloques y logró imitar el movimiento de aplaudir.',
   };
 
-  it('muestra la transcripción de la nota de voz', async () => {
+  // UT 1353: antes de que la terapeuta apruebe, la familia solo oye la nota de voz
+  it('antes de la aprobación solo muestra el audio: ni transcripción ni resumen de la IA', async () => {
     const feedback = {
       transcripcion: 'Hola familia, el niño ha trabajado muy bien hoy.',
       resumen_aprobado: false,
       resumen_escrito: null,
-      resumen_estructurado: null,
-      audio_url: null,
+      resumen_estructurado: resumenIAEjemplo,
+      audio_url: 'tarea-1-123.m4a',
     };
 
     const screen = await render(<FeedbackDePractica feedback={feedback} />);
 
-    expect(screen.getByText('Transcripción de la nota de voz:')).toBeOnTheScreen();
-    expect(screen.getByText('Hola familia, el niño ha trabajado muy bien hoy.')).toBeOnTheScreen();
+    expect(await screen.findByText('Escuchar evaluación del terapeuta')).toBeOnTheScreen();
+    expect(screen.queryByText('Transcripción de la nota de voz:')).toBeNull();
+    expect(screen.queryByText('Hola familia, el niño ha trabajado muy bien hoy.')).toBeNull();
+    expect(screen.queryByText('✨ Generado con IA')).toBeNull();
+    expect(screen.queryByText(/Le ha ido muy bien interactuando con los bloques/)).toBeNull();
   });
 
   it('si el resumen IA se acepta, muestra el resumen estructurado y la etiqueta de Generado con IA', async () => {

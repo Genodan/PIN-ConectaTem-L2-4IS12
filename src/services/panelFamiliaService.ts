@@ -90,10 +90,11 @@ export const agruparPorModulo = (practicas: PracticaFamilia[]): GrupoModulo[] =>
 const fechaFeedback = (practica: PracticaFamilia) =>
   practica.feedback?.enviado_en ?? practica.feedback?.fecha_evaluacion ?? '';
 
-// La práctica con el feedback más reciente: es la que la familia ve arriba del todo y marcada como nueva
+// La práctica con el feedback más reciente: es la que la familia ve arriba del todo y marcada como nueva.
+// Solo cuentan las prácticas «Con feedback»: un feedback que la terapeuta aún revisa (UT 1353) no es nuevo.
 export const practicaConFeedbackMasReciente = (practicas: PracticaFamilia[]): PracticaFamilia | null =>
   practicas
-    .filter((p) => p.feedback)
+    .filter((p) => p.estado === 'evaluada' && p.feedback)
     .reduce<PracticaFamilia | null>(
       (masReciente, p) => (!masReciente || fechaFeedback(p) > fechaFeedback(masReciente) ? p : masReciente),
       null,

@@ -111,6 +111,14 @@ describe('Servicio Panel de la familia (UT 1141) - agrupar y marcar', () => {
     expect(masReciente?.id).toBe('nueva');
   });
 
+  it('no marca un feedback que la terapeuta todavía está revisando (práctica aún «Enviada»)', () => {
+    const enRevision = { ...practica('en-revision', ESPEJO, '2026-10-30T10:00:00Z'), estado: 'completada' };
+
+    const masReciente = practicaConFeedbackMasReciente([enRevision, practica('enviada', INTENCION, '2026-10-25T10:00:00Z')]);
+
+    expect(masReciente?.id).toBe('enviada');
+  });
+
   it('no marca ninguna si todavía no hay feedback', () => {
     expect(practicaConFeedbackMasReciente([practica('p1', INTENCION)])).toBeNull();
   });

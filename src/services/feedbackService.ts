@@ -185,22 +185,43 @@ export const procesarAudioConIA = async (feedbackId: string) => {
   return data as { transcripcion: string; resumen_estructurado: ResumenEstructurado };
 };
 
-// 3. Confirmar y guardar la decisión del terapeuta
-export const actualizarFeedbackFinal = async (feedbackId: string, tareaId: string, contenido: any) => {
-  // 1. Obtenemos los IDs originales de la tarea
-  const { data: tarea } = await supabase.from('tareas').select('*').eq('id', tareaId).single();
+// Lo que decide la terapeuta al enviar (UT 1353): el resumen de la IA revisado y aprobado,
+// o un resumen escrito por ella en lugar del de la IA
+export interface DecisionFeedback {
+  transcripcion: string | null;
+  resumen_aprobado: boolean;
+  resumen_estructurado: ResumenEstructurado | null;
+  resumen_escrito: string | null;
+}
 
-  // 2. Guardamos el feedback definitivo con todos los IDs correctos
+// 3. Confirmar y guardar la decisión del terapeuta
+export const actualizarFeedbackFinal = async (feedbackId: string, tareaId: string, contenido: DecisionFeedback) => {
+  // 1. Obtenemos los IDs originales de la tarea
+  const { data: tarea, error: tareaLecturaError } = await supabase
+    .from('tareas')
+    .select('terapeuta_id, paciente_id, modulo_id')
+    .eq('id', tareaId)
+    .single();
+
+  if (tareaLecturaError || !tarea) {
+    throw new Error('No se encontró la práctica: ' + (tareaLecturaError?.message ?? 'sin respuesta'));
+  }
+
+  // 2. Guardamos el feedback definitivo con todos los IDs correctos y la fecha de envío
+  // (la familia ve arriba del todo el feedback enviado más reciente)
+  const ahora = new Date().toISOString();
   const { error: feedbackError } = await supabase
     .from('feedbacks')
     .update({
       transcripcion: contenido.transcripcion,
       resumen_estructurado: contenido.resumen_estructurado,
       resumen_aprobado: contenido.resumen_aprobado,
-      resumen_escrito: contenido.resumen_escrito, // El nuevo nombre
-      terapeuta_id: tarea?.terapeuta_id,
-      paciente_id: tarea?.paciente_id,
-      modulo_id: tarea?.modulo_id,
+      resumen_escrito: contenido.resumen_escrito,
+      terapeuta_id: tarea.terapeuta_id,
+      paciente_id: tarea.paciente_id,
+      modulo_id: tarea.modulo_id,
+      fecha_evaluacion: ahora,
+      enviado_en: ahora,
     })
     .eq('id', feedbackId);
 

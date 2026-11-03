@@ -35,6 +35,9 @@ jest.mock('../src/services/panelFamiliaService', () => ({
         insignia: null,
         transcripcion: 'Muy bien, Marta. Hugo ha imitado los dos gestos.',
         resumen_estructurado: null,
+        // Feedback ya revisado y enviado por la terapeuta (UT 1353)
+        resumen_aprobado: false,
+        resumen_escrito: 'Hugo imita bien; seguid con un gesto nuevo cada día.',
       },
     },
     {

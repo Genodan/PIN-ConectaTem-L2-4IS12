@@ -97,6 +97,10 @@ export const FeedbackDePractica = ({ feedback }: { feedback: any }) => {
 
   const focoSemanaTexto = resumenIA?.foco_semana || resumenIA?.foco_proxima_semana;
 
+  // UT 1353: lo generado por la IA solo se muestra cuando la terapeuta lo ha revisado y enviado
+  // (resumen aprobado o resumen escrito por ella). Antes, la familia solo oye la nota de voz.
+  const revisadoPorTerapeuta = isAprobado || Boolean(feedbackObj.resumen_escrito);
+
   return (
     <View style={styles.container}>
       {/* SECCIÓN 1: REPRODUCTOR DE AUDIO (si existe nota de voz) */}
@@ -110,11 +114,13 @@ export const FeedbackDePractica = ({ feedback }: { feedback: any }) => {
         )
       ) : null}
 
-      {/* SECCIÓN 2: TRANSCRIPCIÓN (SIEMPRE VISIBLE CUANDO EXISTA O INFORMATIVA) */}
-      <View style={styles.seccion}>
-        <Text style={styles.label}>Transcripción de la nota de voz:</Text>
-        <Text style={styles.textoBase}>{feedbackObj.transcripcion || "Sin transcripción disponible."}</Text>
-      </View>
+      {/* SECCIÓN 2: TRANSCRIPCIÓN (solo cuando la terapeuta ya ha revisado el feedback) */}
+      {revisadoPorTerapeuta && feedbackObj.transcripcion ? (
+        <View style={styles.seccion}>
+          <Text style={styles.label}>Transcripción de la nota de voz:</Text>
+          <Text style={styles.textoBase}>{feedbackObj.transcripcion}</Text>
+        </View>
+      ) : null}
 
       {/* SECCIÓN 3: LÓGICA DE VISUALIZACIÓN (IA ACEPTADO vs RESUMEN ESCRITO RECHAZADO) */}
       <View style={styles.seccion}>

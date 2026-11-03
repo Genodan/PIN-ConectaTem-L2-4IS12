@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View, ActivityIndicator, Alert } from 'react-native';
+import { Button, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -10,12 +10,31 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import { 
+  ResumenEstructurado,
   crearFeedbackInicial, 
   procesarAudioConIA, 
   actualizarFeedbackFinal 
 } from '../services/feedbackService';
 
 type Mensaje = { tipo: 'ok' | 'error'; texto: string };
+
+// Lo que devuelve la IA para esta nota de voz (UT 1122)
+type FeedbackProcesado = { id: string; transcripcion: string; resumen_estructurado: ResumenEstructurado | null };
+
+// UT 1353 · Los tres apartados del resumen, editables por la terapeuta antes de aprobarlo
+type ResumenEditable = { punto_fuerte: string; a_mejorar: string; foco_semana: string };
+const APARTADOS_RESUMEN: { clave: keyof ResumenEditable; titulo: string }[] = [
+  { clave: 'punto_fuerte', titulo: 'Punto fuerte' },
+  { clave: 'a_mejorar', titulo: 'A mejorar' },
+  { clave: 'foco_semana', titulo: 'Foco de la semana' },
+];
+const RESUMEN_VACIO: ResumenEditable = { punto_fuerte: '', a_mejorar: '', foco_semana: '' };
+
+const resumenEditableDe = (resumen: ResumenEstructurado | null): ResumenEditable => ({
+  punto_fuerte: resumen?.punto_fuerte ?? '',
+  a_mejorar: resumen?.a_mejorar ?? '',
+  foco_semana: resumen?.foco_semana ?? resumen?.foco_proxima_semana ?? '',
+});
 const textoDeError = (error: unknown) => (error instanceof Error ? error.message : 'Error desconocido');
 
 const formatearDuracion = (milisegundos: number) => {
@@ -57,9 +76,12 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
   const [mensaje, setMensaje] = useState<Mensaje | null>(null);
   const [procesando, setProcesando] = useState(false);
 
-  const [feedbackBD, setFeedbackBD] = useState<any | null>(null);
-  // UN SOLO CAMPO DE TEXTO EDITABLE
-  const [textoUnico, setTextoUnico] = useState<string>('');
+  const [feedbackBD, setFeedbackBD] = useState<FeedbackProcesado | null>(null);
+  // UT 1353: el resumen de la IA corregido por la terapeuta, o su propio resumen escrito
+  const [resumenEditado, setResumenEditado] = useState<ResumenEditable>(RESUMEN_VACIO);
+  const [resumenEscrito, setResumenEscrito] = useState('');
+  // La transcripción también se revisa: la familia la verá junto al resumen
+  const [transcripcionEditada, setTranscripcionEditada] = useState('');
 
   const grabar = async () => {
     setMensaje(null);
@@ -99,8 +121,10 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
       const idBD = feedbackBD?.id || await crearFeedbackInicial(practicaId, uriAudio);
       const dataIA = await procesarAudioConIA(idBD);
       
-      setFeedbackBD({ id: idBD, ...dataIA });
-      setTextoUnico(dataIA.transcripcion || '');
+      setFeedbackBD({ id: idBD, transcripcion: dataIA.transcripcion, resumen_estructurado: dataIA.resumen_estructurado });
+      setResumenEditado(resumenEditableDe(dataIA.resumen_estructurado));
+      setTranscripcionEditada(dataIA.transcripcion ?? '');
+      setResumenEscrito('');
       setMensaje(null);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: 'Error: ' + textoDeError(error) });
@@ -111,7 +135,22 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
 
   const enviarDefinitivo = async (resumenAprobado: boolean) => {
     if (!feedbackBD?.id) {
-      Alert.alert("Error", "No se encontró el ID del feedback.");
+      setMensaje({ tipo: 'error', texto: 'No se encontró el feedback. Vuelve a procesar la nota de voz.' });
+      return;
+    }
+    // Lo que la terapeuta ha dejado en los campos, sin espacios sobrantes
+    const resumenFinal: ResumenEditable = {
+      punto_fuerte: resumenEditado.punto_fuerte.trim(),
+      a_mejorar: resumenEditado.a_mejorar.trim(),
+      foco_semana: resumenEditado.foco_semana.trim(),
+    };
+    const escritoFinal = resumenEscrito.trim();
+    if (resumenAprobado && !Object.values(resumenFinal).some(Boolean)) {
+      setMensaje({ tipo: 'error', texto: 'El resumen está vacío: complétalo o escribe tu propio resumen.' });
+      return;
+    }
+    if (!resumenAprobado && !escritoFinal) {
+      setMensaje({ tipo: 'error', texto: 'Escribe tu resumen antes de enviarlo.' });
       return;
     }
     setProcesando(true);
@@ -119,13 +158,13 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
 
     try {
       const payload = {
-        // La transcripción se mantiene intacta desde la IA
-        transcripcion: feedbackBD.transcripcion,
+        // La transcripción revisada por la terapeuta (si la deja vacía, se guarda la de la IA)
+        transcripcion: transcripcionEditada.trim() || feedbackBD.transcripcion,
         resumen_aprobado: resumenAprobado,
-        // Si acepta IA: se guarda el objeto estructurado JSON y resumen_escrito queda en null
-        resumen_estructurado: resumenAprobado ? feedbackBD.resumen_estructurado : null,
-        // Si NO acepta IA: se guarda el texto del único campo como resumen_escrito
-        resumen_escrito: resumenAprobado ? null : textoUnico
+        // Si aprueba: se guarda el resumen con las correcciones de la terapeuta
+        resumen_estructurado: resumenAprobado ? resumenFinal : null,
+        // Si no usa el de la IA: se guarda su propio resumen escrito
+        resumen_escrito: resumenAprobado ? null : escritoFinal,
       };
 
       await actualizarFeedbackFinal(feedbackBD.id, practicaId, payload);
@@ -169,33 +208,61 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
       {feedbackBD?.transcripcion && !procesando && (
         <View style={styles.seccionDatos}>
           
-          {/* Muestra el resumen estructurado de la IA si existe */}
+          {/* Transcripción de la IA, editable: la familia la verá junto al resumen cuando se apruebe */}
+          <Text style={styles.label}>Transcripción de la nota de voz</Text>
+          <Text style={styles.ayuda}>Corrige la transcripción si la IA ha entendido algo mal.</Text>
+          <TextInput
+            style={styles.campoTexto}
+            accessibilityLabel="Transcripción de la nota de voz"
+            value={transcripcionEditada}
+            onChangeText={setTranscripcionEditada}
+            multiline
+          />
+
+          {/* UT 1353: la terapeuta revisa y corrige el resumen de la IA antes de aprobarlo */}
           {feedbackBD.resumen_estructurado ? (
             <View style={styles.cajaPreviaIA}>
-              <Text style={styles.labelIA}>✨ Resumen generado por IA:</Text>
-              <Text style={styles.itemIA}>⭐ <Text style={{fontWeight: 'bold'}}>Punto fuerte:</Text> {feedbackBD.resumen_estructurado.punto_fuerte}</Text>
-              <Text style={styles.itemIA}>📈 <Text style={{fontWeight: 'bold'}}>A mejorar:</Text> {feedbackBD.resumen_estructurado.a_mejorar}</Text>
-              <Text style={styles.itemIA}>🎯 <Text style={{fontWeight: 'bold'}}>Foco semana:</Text> {feedbackBD.resumen_estructurado.foco_semana}</Text>
+              <Text style={styles.labelIA}>Resumen generado por IA</Text>
+              <Text style={styles.ayuda}>
+                Revísalo y corrige lo que haga falta. La familia verá la transcripción y el resumen cuando lo apruebes.
+              </Text>
+              {APARTADOS_RESUMEN.map(({ clave, titulo }) => (
+                <View key={clave}>
+                  <Text style={styles.label}>{titulo}</Text>
+                  <TextInput
+                    style={styles.campoTexto}
+                    accessibilityLabel={titulo}
+                    value={resumenEditado[clave]}
+                    onChangeText={(texto) => setResumenEditado((actual) => ({ ...actual, [clave]: texto }))}
+                    multiline
+                  />
+                </View>
+              ))}
+              <Button title="Aprobar y enviar resumen" color="#28a745" onPress={() => enviarDefinitivo(true)} />
             </View>
           ) : (
             <Text style={styles.ayuda}>No se generó resumen automático.</Text>
           )}
 
-          {/* ÚNICO CAMPO DE TEXTO */}
-          <Text style={styles.label}>Notas / Resumen escrito:</Text>
+          {/* Alternativa: enviar un resumen escrito por la terapeuta en lugar del de la IA */}
+          <Text style={styles.label}>
+            {feedbackBD.resumen_estructurado ? '¿Prefieres no usar el resumen de la IA?' : 'Resumen escrito'}
+          </Text>
           <TextInput
             style={styles.campoTexto}
-            value={textoUnico}
-            onChangeText={setTextoUnico}
-            placeholder="Escribe tu resumen manual aquí (se enviará si no usas la IA)..."
+            accessibilityLabel="Resumen escrito"
+            value={resumenEscrito}
+            onChangeText={setResumenEscrito}
+            placeholder="Escribe tu propio resumen para la familia..."
             multiline
           />
-
           <View style={styles.botonesFila}>
-            {feedbackBD.resumen_estructurado && (
-              <Button title="✅ Enviar con Resumen IA" color="#28a745" onPress={() => enviarDefinitivo(true)} />
-            )}
-            <Button title="❌ Enviar con Resumen Escrito" color="#666" onPress={() => enviarDefinitivo(false)} />
+            <Button
+              title="Enviar con mi resumen escrito"
+              color="#666"
+              onPress={() => enviarDefinitivo(false)}
+              disabled={!resumenEscrito.trim()}
+            />
           </View>
         </View>
       )}
@@ -222,7 +289,7 @@ const styles = StyleSheet.create({
   cajaPreviaIA: { backgroundColor: '#f0f5ff', padding: 12, borderRadius: 6, marginBottom: 15, borderWidth: 1, borderColor: '#d6e4ff' },
   itemIA: { fontSize: 13, marginBottom: 4, color: '#333' },
   ayuda: { fontSize: 12, color: '#666', marginBottom: 10, fontStyle: 'italic' },
-  campoTexto: { minHeight: 80, borderWidth: 1, borderColor: '#ccc', borderRadius: 5, padding: 10, backgroundColor: '#fff', textAlignVertical: 'top', marginTop: 5 },
+  campoTexto: { minHeight: 60, marginBottom: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 5, padding: 10, backgroundColor: '#fff', textAlignVertical: 'top', marginTop: 5 },
   mensajeOk: { color: '#28a745', fontWeight: 'bold', textAlign: 'center', marginBottom: 5, marginTop: 10 },
   mensajeError: { color: '#d9534f', fontWeight: 'bold', textAlign: 'center', marginBottom: 5, marginTop: 10 },
 });
