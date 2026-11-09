@@ -11,5 +11,7 @@ test('desde el inicio se entra al panel de la familia', async ({ page }) => {
 test('desde el inicio se entra al panel de la terapeuta', async ({ page }) => {
   await page.goto('/');
   await page.getByText('Entrar como terapeuta').click();
-  await expect(page.getByText('Panel principal de la terapeuta')).toBeVisible();
+  // La pantalla de la terapeuta carga sus datos de Supabase antes de pintarse: se da más margen que el de por defecto.
+  // El texto «Panel principal de la terapeuta» ya no existe; el selector de terapeuta es lo primero que se ve.
+  await expect(page.getByText('¿Quién eres? (Simulación de Login)')).toBeVisible({ timeout: 15_000 });
 });
