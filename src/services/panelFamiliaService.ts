@@ -99,3 +99,17 @@ export const practicaConFeedbackMasReciente = (practicas: PracticaFamilia[]): Pr
       (masReciente, p) => (!masReciente || fechaFeedback(p) > fechaFeedback(masReciente) ? p : masReciente),
       null,
     );
+
+// UT 1138 · Historial: todas las prácticas del paciente en una sola lista, de la más reciente a la más antigua
+// por fecha de asignación. Las que no tienen fecha van al final; con la misma fecha se mantiene el orden recibido.
+export const ordenarPorFechaAsignacion = (practicas: PracticaFamilia[]): PracticaFamilia[] => {
+  const tiempo = (practica: PracticaFamilia) => {
+    const t = practica.fecha_asignacion ? Date.parse(practica.fecha_asignacion) : NaN;
+    return Number.isNaN(t) ? -Infinity : t;
+  };
+  return [...practicas].sort((a, b) => {
+    const [ta, tb] = [tiempo(a), tiempo(b)];
+    if (ta === tb) return 0;
+    return tb > ta ? 1 : -1;
+  });
+};

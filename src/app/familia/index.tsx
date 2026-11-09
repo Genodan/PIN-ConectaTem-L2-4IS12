@@ -20,6 +20,7 @@ import {
   agruparPorModulo,
   obtenerPracticasDelPaciente,
   practicaConFeedbackMasReciente,
+  ordenarPorFechaAsignacion,
   textoEstado,
 } from '../../services/panelFamiliaService';
 import { FeedbackDePractica } from '../../components/FeedbackDePractica';
@@ -43,6 +44,8 @@ const formatearSegundos = (segundos: number) => {
 export default function InicioFamilia() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteActual, setPacienteActual] = useState<string | null>(null);
+  // UT 1138: el historial muestra todas las prácticas del paciente en una sola lista cronológica
+  const [verHistorial, setVerHistorial] = useState(false);
   const [tareas, setTareas] = useState<PracticaFamilia[]>([]);
   const [tareaSeleccionada, setTareaSeleccionada] = useState<string | null>(null);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<{
@@ -346,6 +349,150 @@ export default function InicioFamilia() {
   const masReciente = practicaConFeedbackMasReciente(tareas);
   const nombreNino = pacientes.find((p) => p.id === pacienteActual)?.nombre_nino;
 
+  // Tarjeta de una práctica (módulo, fecha, estado y, al abrirla, sus acciones). La usan la vista por módulos y el historial.
+  const tarjetaDePractica = (tarea: PracticaFamilia) => {
+        const esSeleccionada = tareaSeleccionada === tarea.id;
+        const esLaMasReciente = masReciente?.id === tarea.id;
+        const modulo = tarea.modulos;
+
+        const materialesTexto = Array.isArray(modulo?.ideas_materiales)
+          ? modulo.ideas_materiales.join(', ')
+          : modulo?.ideas_materiales || 'No especificados';
+
+        return (
+          <View key={tarea.id} style={styles.tarjetaTarea} testID="tarjeta-practica">
+            <TouchableOpacity
+              style={styles.cabeceraTarea}
+              onPress={() => {
+                setTareaSeleccionada(esSeleccionada ? null : tarea.id);
+                setArchivoSeleccionado(null);
+              }}
+            >
+              <Text style={styles.tituloModulo}>{modulo?.titulo || 'Módulo asignado'}</Text>
+              <View style={styles.badges}>
+                {esLaMasReciente && <Text style={styles.badgeNuevo}>Feedback nuevo</Text>}
+                <Text
+                  style={[
+                    styles.estadoBadge,
+                    tarea.estado === 'completada' && styles.estadoEnviada,
+                    tarea.estado === 'evaluada' && styles.estadoConFeedback,
+                  ]}
+                >
+                  {textoEstado(tarea.estado)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            {tarea.fecha_asignacion && (
+              <Text style={styles.fechaPractica}>
+                Asignada el {new Date(tarea.fecha_asignacion).toLocaleDateString('es-ES')}
+              </Text>
+            )}
+
+            {/* Pendiente: se puede practicar y enviar el vídeo */}
+            {esSeleccionada && tarea.estado === 'pendientes' && (
+              <View style={styles.detalleTarea}>
+                <Text style={styles.label}>Objetivo:</Text>
+                <Text style={styles.texto}>{modulo?.objetivo || 'Sin objetivo'}</Text>
+
+                <Text style={styles.label}>Ideas de materiales:</Text>
+                <Text style={styles.texto}>{materialesTexto}</Text>
+
+                <Text style={styles.label}>Vídeo Guía:</Text>
+                <Text style={styles.enlace}>{modulo?.video_guia_url || 'Sin enlace'}</Text>
+
+                {/* SECCIÓN DE SELECCIÓN DE ARCHIVO Y GRABACIÓN */}
+                <View style={styles.seccionArchivo}>
+                  <Text style={styles.label}>Adjuntar vídeo o archivo de práctica:</Text>
+
+                  <View style={styles.filaBotones}>
+                    <TouchableOpacity
+                      style={styles.botonAdjuntar}
+                      onPress={seleccionarArchivo}
+                      disabled={estaGrabando || enviando}
+                    >
+                      <Text style={styles.textoBotonAdjuntar}>
+                        📁 {archivoSeleccionado && archivoSeleccionado.tipo === 'archivo'
+                          ? 'Cambiar archivo'
+                          : 'Seleccionar archivo/vídeo'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.botonGrabar}
+                      onPress={solicitarGrabarVideo}
+                      disabled={estaGrabando || enviando}
+                    >
+                      <Text style={styles.textoBotonGrabar}>
+                        {estaGrabando
+                          ? '🎥 Grabando...'
+                          : archivoSeleccionado && archivoSeleccionado.tipo === 'grabacion'
+                          ? '🎥 Grabar de nuevo'
+                          : '🎥 Grabar'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {archivoSeleccionado && (
+                    <View style={styles.contenedorArchivoSeleccionado}>
+                      <Text style={styles.textoArchivoSeleccionado}>
+                        {archivoSeleccionado.tipo === 'grabacion'
+                          ? '🎥 Vídeo grabado: '
+                          : '📁 Adjuntado: '}
+                        <Text style={{ fontWeight: 'bold' }}>{archivoSeleccionado.name}</Text>
+                      </Text>
+                      <TouchableOpacity onPress={() => setArchivoSeleccionado(null)}>
+                        <Text style={styles.botonEliminarArchivo}>Quitar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.botonContainer}>
+                  <Button
+                    title={enviando ? 'Enviando...' : '📤 Enviar Práctica'}
+                    color="#28a745"
+                    onPress={() => manejarEnvioVideo(tarea.id)}
+                    disabled={enviando || estaGrabando || !archivoSeleccionado}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Enviada: falta que la terapeuta la revise */}
+            {esSeleccionada && tarea.estado === 'completada' && (
+              <View style={styles.detalleTarea}>
+                <Text style={styles.texto}>
+                  Práctica enviada
+                  {tarea.fecha_envio ? ` el ${new Date(tarea.fecha_envio).toLocaleDateString('es-ES')}` : ''}. Tu
+                  terapeuta la revisará y te dará feedback.
+                </Text>
+              </View>
+            )}
+
+            {/* Con feedback: el feedback de la terapeuta, dentro de su práctica. Solo cuando ya lo ha enviado:
+                mientras la práctica está «Enviada», la fila de feedback es un borrador y la familia no debe oírlo */}
+            {esSeleccionada && tarea.estado === 'evaluada' && tarea.feedback && (
+              <View style={styles.detalleTarea}>
+                <FeedbackDePractica feedback={tarea.feedback} />
+              </View>
+            )}
+
+            {/* UT 1401: una práctica enviada (Enviada o Con feedback) se puede repetir: se abre la nueva para grabar */}
+            {esSeleccionada && (tarea.estado === 'completada' || tarea.estado === 'evaluada') && (
+              <View style={styles.detalleTarea}>
+                <RepetirPractica
+                  practicaId={tarea.id}
+                  onRepetida={async (idNueva) => {
+                    await cargarTareas();
+                    setTareaSeleccionada(idNueva);
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        );
+  };
+
   if (cargando) {
     return (
       <View style={styles.center}>
@@ -387,8 +534,17 @@ export default function InicioFamilia() {
 
       <View style={styles.separador} />
       <Text style={styles.titulo}>{nombreNino ? `Prácticas de ${nombreNino}` : 'Prácticas'}</Text>
+      <View style={styles.botonHistorial}>
+        <Button title={verHistorial ? 'Ver por módulos' : 'Historial'} onPress={() => setVerHistorial((v) => !v)} />
+      </View>
 
-      {tareas.length === 0 ? (
+      {verHistorial ? (
+        tareas.length === 0 ? (
+          <Text style={styles.textoVacio}>Todavía no hay prácticas para este paciente.</Text>
+        ) : (
+          ordenarPorFechaAsignacion(tareas).map(tarjetaDePractica)
+        )
+      ) : tareas.length === 0 ? (
         <Text style={styles.textoVacio}>Todavía no hay prácticas asignadas para este paciente.</Text>
       ) : (
         grupos.map((grupo) => (
@@ -396,148 +552,7 @@ export default function InicioFamilia() {
             <Text style={styles.tituloGrupo}>
               {`Módulo: ${grupo.titulo} (${grupo.practicas.length} ${grupo.practicas.length === 1 ? 'práctica' : 'prácticas'})`}
             </Text>
-            {grupo.practicas.map((tarea) => {
-              const esSeleccionada = tareaSeleccionada === tarea.id;
-              const esLaMasReciente = masReciente?.id === tarea.id;
-              const modulo = tarea.modulos;
-
-              const materialesTexto = Array.isArray(modulo?.ideas_materiales)
-                ? modulo.ideas_materiales.join(', ')
-                : modulo?.ideas_materiales || 'No especificados';
-
-              return (
-                <View key={tarea.id} style={styles.tarjetaTarea}>
-                  <TouchableOpacity
-                    style={styles.cabeceraTarea}
-                    onPress={() => {
-                      setTareaSeleccionada(esSeleccionada ? null : tarea.id);
-                      setArchivoSeleccionado(null);
-                    }}
-                  >
-                    <Text style={styles.tituloModulo}>{modulo?.titulo || 'Módulo asignado'}</Text>
-                    <View style={styles.badges}>
-                      {esLaMasReciente && <Text style={styles.badgeNuevo}>Feedback nuevo</Text>}
-                      <Text
-                        style={[
-                          styles.estadoBadge,
-                          tarea.estado === 'completada' && styles.estadoEnviada,
-                          tarea.estado === 'evaluada' && styles.estadoConFeedback,
-                        ]}
-                      >
-                        {textoEstado(tarea.estado)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  {tarea.fecha_asignacion && (
-                    <Text style={styles.fechaPractica}>
-                      Asignada el {new Date(tarea.fecha_asignacion).toLocaleDateString('es-ES')}
-                    </Text>
-                  )}
-
-                  {/* Pendiente: se puede practicar y enviar el vídeo */}
-                  {esSeleccionada && tarea.estado === 'pendientes' && (
-                    <View style={styles.detalleTarea}>
-                      <Text style={styles.label}>Objetivo:</Text>
-                      <Text style={styles.texto}>{modulo?.objetivo || 'Sin objetivo'}</Text>
-
-                      <Text style={styles.label}>Ideas de materiales:</Text>
-                      <Text style={styles.texto}>{materialesTexto}</Text>
-
-                      <Text style={styles.label}>Vídeo Guía:</Text>
-                      <Text style={styles.enlace}>{modulo?.video_guia_url || 'Sin enlace'}</Text>
-
-                      {/* SECCIÓN DE SELECCIÓN DE ARCHIVO Y GRABACIÓN */}
-                      <View style={styles.seccionArchivo}>
-                        <Text style={styles.label}>Adjuntar vídeo o archivo de práctica:</Text>
-
-                        <View style={styles.filaBotones}>
-                          <TouchableOpacity
-                            style={styles.botonAdjuntar}
-                            onPress={seleccionarArchivo}
-                            disabled={estaGrabando || enviando}
-                          >
-                            <Text style={styles.textoBotonAdjuntar}>
-                              📁 {archivoSeleccionado && archivoSeleccionado.tipo === 'archivo'
-                                ? 'Cambiar archivo'
-                                : 'Seleccionar archivo/vídeo'}
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={styles.botonGrabar}
-                            onPress={solicitarGrabarVideo}
-                            disabled={estaGrabando || enviando}
-                          >
-                            <Text style={styles.textoBotonGrabar}>
-                              {estaGrabando
-                                ? '🎥 Grabando...'
-                                : archivoSeleccionado && archivoSeleccionado.tipo === 'grabacion'
-                                ? '🎥 Grabar de nuevo'
-                                : '🎥 Grabar'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-
-                        {archivoSeleccionado && (
-                          <View style={styles.contenedorArchivoSeleccionado}>
-                            <Text style={styles.textoArchivoSeleccionado}>
-                              {archivoSeleccionado.tipo === 'grabacion'
-                                ? '🎥 Vídeo grabado: '
-                                : '📁 Adjuntado: '}
-                              <Text style={{ fontWeight: 'bold' }}>{archivoSeleccionado.name}</Text>
-                            </Text>
-                            <TouchableOpacity onPress={() => setArchivoSeleccionado(null)}>
-                              <Text style={styles.botonEliminarArchivo}>Quitar</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-
-                      <View style={styles.botonContainer}>
-                        <Button
-                          title={enviando ? 'Enviando...' : '📤 Enviar Práctica'}
-                          color="#28a745"
-                          onPress={() => manejarEnvioVideo(tarea.id)}
-                          disabled={enviando || estaGrabando || !archivoSeleccionado}
-                        />
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Enviada: falta que la terapeuta la revise */}
-                  {esSeleccionada && tarea.estado === 'completada' && (
-                    <View style={styles.detalleTarea}>
-                      <Text style={styles.texto}>
-                        Práctica enviada
-                        {tarea.fecha_envio ? ` el ${new Date(tarea.fecha_envio).toLocaleDateString('es-ES')}` : ''}. Tu
-                        terapeuta la revisará y te dará feedback.
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Con feedback: el feedback de la terapeuta, dentro de su práctica. Solo cuando ya lo ha enviado:
-                      mientras la práctica está «Enviada», la fila de feedback es un borrador y la familia no debe oírlo */}
-                  {esSeleccionada && tarea.estado === 'evaluada' && tarea.feedback && (
-                    <View style={styles.detalleTarea}>
-                      <FeedbackDePractica feedback={tarea.feedback} />
-                    </View>
-                  )}
-
-                  {/* UT 1401: una práctica enviada (Enviada o Con feedback) se puede repetir: se abre la nueva para grabar */}
-                  {esSeleccionada && (tarea.estado === 'completada' || tarea.estado === 'evaluada') && (
-                    <View style={styles.detalleTarea}>
-                      <RepetirPractica
-                        practicaId={tarea.id}
-                        onRepetida={async (idNueva) => {
-                          await cargarTareas();
-                          setTareaSeleccionada(idNueva);
-                        }}
-                      />
-                    </View>
-                  )}
-                </View>
-              );
-            })}
+            {grupo.practicas.map(tarjetaDePractica)}
           </View>
         ))
       )}
@@ -641,6 +656,7 @@ const styles = StyleSheet.create({
   pickerContainer: { borderWidth: 1, borderColor: '#ccc', borderRadius: 5, backgroundColor: '#fff' },
   separador: { height: 20 },
   titulo: { fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
+  botonHistorial: { marginBottom: 12 },
   textoVacio: { fontStyle: 'italic', color: '#666', textAlign: 'center', marginTop: 20 },
   tarjetaTarea: {
     backgroundColor: '#fff',
