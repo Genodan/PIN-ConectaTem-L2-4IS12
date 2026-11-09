@@ -3,6 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DarFeedback } from '../src/components/DarFeedback';
 import { FeedbackDePractica } from '../src/components/FeedbackDePractica';
 
+// El primer test de este archivo carga y pinta todo por primera vez. En local tarda ~1 s, pero en el servidor
+// de GitHub (más lento y con la caché fría) ha llegado a pasar de los 5 s de Jest y fallaba de forma intermitente.
+jest.setTimeout(20000);
+
 // Prueba de aceptación de la UT 1353 "Aprobar o editar el resumen antes de enviarlo" (Worki).
 // La base de datos, la IA y el micrófono se simulan: no se tocan datos reales ni se graba voz real.
 const mockGrabadora = {
