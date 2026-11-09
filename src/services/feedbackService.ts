@@ -154,17 +154,43 @@ export const crearFeedbackInicial = async (practicaId: string, uriAudio: string)
 
     if (uploadError) throw uploadError;
 
-    // Crear el registro inicial en la base de datos
+    // Borrador anterior de esta práctica, si lo hay: la terapeuta cerró la app o falló la IA a medias.
+    // «tarea_id» es único, así que un insert fallaría con «duplicate key»: se reutiliza la misma fila.
+    const { data: anterior } = await supabase
+      .from('feedbacks')
+      .select('audio_url')
+      .eq('tarea_id', practicaId)
+      .maybeSingle();
+
+    // Crear (o reiniciar) el registro inicial en la base de datos.
+    // Se vacían transcripción y resumen: la función de IA no vuelve a procesar una fila que ya los tiene
+    // y devolvería los del audio anterior.
     const { data: dbData, error: dbError } = await supabase
       .from('feedbacks')
-      .insert({
-        tarea_id: practicaId,
-        audio_url: uploadData.path,
-      })
+      .upsert(
+        {
+          tarea_id: practicaId,
+          audio_url: uploadData.path,
+          transcripcion: null,
+          resumen_estructurado: null,
+          resumen_aprobado: null,
+          resumen_escrito: null,
+        },
+        { onConflict: 'tarea_id' },
+      )
       .select('id')
       .single();
 
     if (dbError) throw dbError;
+
+    // El audio del borrador anterior ya no lo usa nadie: se borra para no dejar voces de menores huérfanas
+    if (anterior?.audio_url && anterior.audio_url !== uploadData.path) {
+      try {
+        await supabase.storage.from(BUCKET_FEEDBACK).remove([anterior.audio_url]);
+      } catch {
+        // sin acción: el borrado es una limpieza, no debe hacer fallar el envío
+      }
+    }
 
     return dbData.id;
 

@@ -112,6 +112,17 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
     }
   };
 
+  // La terapeuta descarta la transcripción y el resumen y empieza de nuevo. No hace falta borrar nada en
+  // la base de datos: al volver a transcribir, crearFeedbackInicial reutiliza la fila del borrador.
+  const volverAGrabar = () => {
+    setFeedbackBD(null);
+    setUriAudio(null);
+    setResumenEditado(RESUMEN_VACIO);
+    setResumenEscrito('');
+    setTranscripcionEditada('');
+    setMensaje(null);
+  };
+
   const solicitarProcesamientoIA = async () => {
     if (!uriAudio) return;
     setProcesando(true);
@@ -207,7 +218,18 @@ export const DarFeedback = ({ practicaId, onEnviado }: { practicaId: string; onE
       {/* 2. RESULTADOS Y ENVÍO */}
       {feedbackBD?.transcripcion && !procesando && (
         <View style={styles.seccionDatos}>
-          
+          {/* La nota de voz sigue disponible para releerla mientras se corrige la transcripción y el resumen */}
+          {uriAudio && (
+            <View>
+              <Text style={styles.label}>Tu nota de voz</Text>
+              <EscucharGrabacion uri={uriAudio} />
+            </View>
+          )}
+
+          {/* ¿Ha salido mal la grabación? Se descarta todo y se graba otra vez */}
+          <Button title="Descartar y volver a grabar" color="#888" onPress={volverAGrabar} disabled={procesando} />
+          <Text style={styles.ayuda}>Se pierden las correcciones que hayas hecho en la transcripción y el resumen.</Text>
+
           {/* Transcripción de la IA, editable: la familia la verá junto al resumen cuando se apruebe */}
           <Text style={styles.label}>Transcripción de la nota de voz</Text>
           <Text style={styles.ayuda}>Corrige la transcripción si la IA ha entendido algo mal.</Text>
