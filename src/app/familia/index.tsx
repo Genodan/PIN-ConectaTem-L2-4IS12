@@ -23,6 +23,7 @@ import {
   textoEstado,
 } from '../../services/panelFamiliaService';
 import { FeedbackDePractica } from '../../components/FeedbackDePractica';
+import { RepetirPractica } from '../../components/RepetirPractica';
 
 // Helper compatible con Web y Móvil para mostrar alertas y notificaciones
 const mostrarAlerta = (titulo: string, mensaje?: string) => {
@@ -514,10 +515,24 @@ export default function InicioFamilia() {
                     </View>
                   )}
 
-                  {/* Con feedback: el feedback de la terapeuta, dentro de su práctica */}
-                  {esSeleccionada && tarea.feedback && (
+                  {/* Con feedback: el feedback de la terapeuta, dentro de su práctica. Solo cuando ya lo ha enviado:
+                      mientras la práctica está «Enviada», la fila de feedback es un borrador y la familia no debe oírlo */}
+                  {esSeleccionada && tarea.estado === 'evaluada' && tarea.feedback && (
                     <View style={styles.detalleTarea}>
                       <FeedbackDePractica feedback={tarea.feedback} />
+                    </View>
+                  )}
+
+                  {/* UT 1401: una práctica enviada (Enviada o Con feedback) se puede repetir: se abre la nueva para grabar */}
+                  {esSeleccionada && (tarea.estado === 'completada' || tarea.estado === 'evaluada') && (
+                    <View style={styles.detalleTarea}>
+                      <RepetirPractica
+                        practicaId={tarea.id}
+                        onRepetida={async (idNueva) => {
+                          await cargarTareas();
+                          setTareaSeleccionada(idNueva);
+                        }}
+                      />
                     </View>
                   )}
                 </View>
