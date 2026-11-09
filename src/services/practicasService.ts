@@ -2,6 +2,8 @@ import { supabase } from '../utils/supabase';
 
 // Código de estado que guarda la base de datos. En pantalla se muestra como «Pendiente».
 export const ESTADO_PRACTICA_PENDIENTE = 'pendientes';
+// Estados de una práctica que la familia ya ha enviado: «Enviada» (completada) y «Con feedback» (evaluada)
+const ESTADOS_PRACTICA_ENVIADA = ['completada', 'evaluada'];
 
 export interface PacienteResumen {
   id: string;
@@ -66,4 +68,47 @@ export const crearPractica = async ({ terapeutaId, pacienteId, moduloId }: Nueva
   }
 
   return data[0];
+};
+
+// UT 1401 · La familia repite una práctica que ya ha enviado (con o sin feedback): se crea otra «Pendiente»
+// del mismo módulo, con la misma terapeuta y el mismo paciente, para grabar un clip nuevo y enviarlo.
+// La práctica anterior no se toca: sigue en el historial con su feedback.
+export const repetirPractica = async (practicaId: string) => {
+  const fallo = (motivo: string) => new Error('No se ha podido repetir la práctica: ' + motivo);
+
+  const { data: original, error: errorOriginal } = await supabase
+    .from('tareas')
+    .select('id, terapeuta_id, paciente_id, modulo_id, estado')
+    .eq('id', practicaId)
+    .single();
+
+  if (errorOriginal || !original) throw fallo(errorOriginal?.message ?? 'no se encontró la práctica.');
+
+  if (!ESTADOS_PRACTICA_ENVIADA.includes(original.estado)) {
+    throw new Error('Solo se puede repetir una práctica que ya has enviado.');
+  }
+
+  // Si ya hay otra pendiente de ese módulo no se crea una segunda
+  const { data: pendientes, error: errorPendientes } = await supabase
+    .from('tareas')
+    .select('id')
+    .eq('paciente_id', original.paciente_id)
+    .eq('modulo_id', original.modulo_id)
+    .eq('estado', ESTADO_PRACTICA_PENDIENTE)
+    .limit(1);
+
+  if (errorPendientes) throw fallo(errorPendientes.message);
+  if (pendientes && pendientes.length > 0) {
+    throw new Error('Ya tienes una práctica pendiente de este módulo. Envíala antes de repetirla.');
+  }
+
+  try {
+    return await crearPractica({
+      terapeutaId: original.terapeuta_id,
+      pacienteId: original.paciente_id,
+      moduloId: original.modulo_id,
+    });
+  } catch (e) {
+    throw fallo(e instanceof Error ? e.message : 'error desconocido');
+  }
 };
