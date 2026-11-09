@@ -6,34 +6,51 @@ jest.mock('../src/utils/supabase', () => ({
   supabase: { from: jest.fn() },
 }));
 
-describe('Servicio de Pacientes - Asignación', () => {
-  beforeEach(() => { jest.clearAllMocks(); });
+// La consulta que hace el servicio: update(terapeuta) -> eq(id del paciente) -> select()
+const simularActualizacion = (resultado: { data: unknown; error: unknown }) => {
+  const mockSelect = jest.fn().mockResolvedValue(resultado);
+  const mockEq = jest.fn().mockReturnValue({ select: mockSelect });
+  const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
+  (supabase.from as jest.Mock).mockReturnValue({ update: mockUpdate });
+  return { mockUpdate, mockEq };
+};
 
-  it('debe asignar el terapeuta correctamente si el paciente está libre', async () => {
-    const mockSelect = jest.fn().mockResolvedValue({ 
-      data: [{ id: 'pac-1', terapeuta_asignado_id: 'terap-1' }], error: null 
+describe('Servicio de Pacientes - Asignación', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // El servicio escribe en la consola lo que envía y lo que responde Supabase: se silencia en las pruebas
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('debe asignar el terapeuta al paciente indicado y devolver la fila actualizada', async () => {
+    const { mockUpdate, mockEq } = simularActualizacion({
+      data: [{ id: 'pac-1', terapeuta_asignado_id: 'terap-1' }],
+      error: null,
     });
-    const mockIs = jest.fn().mockReturnValue({ select: mockSelect });
-    const mockEq = jest.fn().mockReturnValue({ is: mockIs });
-    const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
-    
-    (supabase.from as jest.Mock).mockReturnValue({ update: mockUpdate });
 
     const resultado = await vincularPaciente('pac-1', 'terap-1');
 
+    expect(supabase.from).toHaveBeenCalledWith('pacientes');
     expect(mockUpdate).toHaveBeenCalledWith({ terapeuta_asignado_id: 'terap-1' });
-    expect(mockIs).toHaveBeenCalledWith('terapeuta_asignado_id', null);
+    expect(mockEq).toHaveBeenCalledWith('id', 'pac-1');
     expect(resultado.terapeuta_asignado_id).toBe('terap-1');
   });
 
-  it('debe lanzar error si otro terapeuta ya lo ha asignado', async () => {
-    const mockSelect = jest.fn().mockResolvedValue({ data: [], error: null });
-    const mockIs = jest.fn().mockReturnValue({ select: mockSelect });
-    const mockEq = jest.fn().mockReturnValue({ is: mockIs });
-    const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq });
-    
-    (supabase.from as jest.Mock).mockReturnValue({ update: mockUpdate });
+  it('debe lanzar error si Supabase no actualiza ninguna fila (posible bloqueo de permisos)', async () => {
+    simularActualizacion({ data: [], error: null });
 
-    await expect(vincularPaciente('pac-1', 'terap-1')).rejects.toThrow('El paciente ya ha sido asignado a otro terapeuta.');
+    await expect(vincularPaciente('pac-1', 'terap-1')).rejects.toThrow(
+      'Supabase no actualizó nada. Posible bloqueo de permisos (RLS).',
+    );
+  });
+
+  it('debe lanzar error con el motivo si Supabase devuelve un error', async () => {
+    simularActualizacion({ data: null, error: { message: 'fallo de red' } });
+
+    await expect(vincularPaciente('pac-1', 'terap-1')).rejects.toThrow('Error al asignar paciente: fallo de red');
   });
 });

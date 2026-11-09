@@ -18,6 +18,13 @@ jest.mock('../src/services/panelFamiliaService', () => ({
   obtenerPracticasDelPaciente: jest.fn(),
 }));
 
+// La pantalla incluye el feedback de la terapeuta (FeedbackDePractica), que usa el reproductor de audio:
+// se simula, porque el módulo nativo de expo-audio no existe en las pruebas.
+jest.mock('expo-audio', () => ({
+  useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn(), seekTo: jest.fn() }),
+  useAudioPlayerStatus: () => ({ playing: false, didJustFinish: false, currentTime: 0, duration: 0 }),
+}));
+
 jest.mock('../src/components/VerFeedback', () => ({
   VerFeedback: () => null,
 }));
@@ -151,7 +158,8 @@ describe('Entrega de Tarea - Grabar y Enviar Vídeo', () => {
     fireEvent.press(botonEnviar);
 
     await waitFor(() => {
-      expect(enviarPractica).toHaveBeenCalledWith('tarea-101', 'tarea_grabada.mp4');
+      // Se envía la URI completa del vídeo (no solo su nombre): el servicio la necesita para leer el archivo
+      expect(enviarPractica).toHaveBeenCalledWith('tarea-101', 'file:///videos/tarea_grabada.mp4');
     });
   });
 
