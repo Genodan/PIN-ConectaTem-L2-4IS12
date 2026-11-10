@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -42,6 +43,7 @@ const formatearSegundos = (segundos: number) => {
 };
 
 export default function InicioFamilia() {
+  const router = useRouter();
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteActual, setPacienteActual] = useState<string | null>(null);
   // UT 1138: el historial muestra todas las prácticas del paciente en una sola lista cronológica
@@ -534,8 +536,23 @@ export default function InicioFamilia() {
 
       <View style={styles.separador} />
       <Text style={styles.titulo}>{nombreNino ? `Prácticas de ${nombreNino}` : 'Prácticas'}</Text>
-      <View style={styles.botonHistorial}>
-        <Button title={verHistorial ? 'Ver por módulos' : 'Historial'} onPress={() => setVerHistorial((v) => !v)} />
+      <View style={styles.filaBotonesAcciones}>
+        <View style={styles.botonHistorial}>
+          <Button title={verHistorial ? 'Ver por módulos' : 'Historial'} onPress={() => setVerHistorial((v) => !v)} />
+        </View>
+        <TouchableOpacity
+          testID="boton-buscar-feedbacks"
+          accessibilityRole="button"
+          style={styles.botonBuscarFeedbacks}
+          onPress={() =>
+            router.push({
+              pathname: '/familia/buscar',
+              params: { pacienteId: pacienteActual ?? '' },
+            })
+          }
+        >
+          <Text style={styles.textoBotonBuscarFeedbacks}>🔍 Buscar feedbacks</Text>
+        </TouchableOpacity>
       </View>
 
       {verHistorial ? (
@@ -656,7 +673,27 @@ const styles = StyleSheet.create({
   pickerContainer: { borderWidth: 1, borderColor: '#ccc', borderRadius: 5, backgroundColor: '#fff' },
   separador: { height: 20 },
   titulo: { fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
-  botonHistorial: { marginBottom: 12 },
+  filaBotonesAcciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  botonHistorial: { marginBottom: 0 },
+  botonBuscarFeedbacks: {
+    backgroundColor: '#1F5C8C',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textoBotonBuscarFeedbacks: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   textoVacio: { fontStyle: 'italic', color: '#666', textAlign: 'center', marginTop: 20 },
   tarjetaTarea: {
     backgroundColor: '#fff',
