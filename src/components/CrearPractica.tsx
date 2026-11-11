@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import {
   ModuloResumen,
@@ -18,6 +18,8 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
   const [modulos, setModulos] = useState<ModuloResumen[]>([]);
   const [pacienteId, setPacienteId] = useState<string | null>(null);
   const [moduloId, setModuloId] = useState<string | null>(null);
+  // UT 1406: instrucciones para la familia (opcionales); la familia podrá escucharlas en voz alta
+  const [instrucciones, setInstrucciones] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<Mensaje | null>(null);
@@ -51,7 +53,8 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
     setGuardando(true);
     setMensaje(null);
     try {
-      await crearPractica({ terapeutaId: terapeutaIdActual, pacienteId, moduloId });
+      await crearPractica({ terapeutaId: terapeutaIdActual, pacienteId, moduloId, instrucciones });
+      setInstrucciones('');
       const paciente = pacientes.find((p) => p.id === pacienteId);
       const modulo = modulos.find((m) => m.id === moduloId);
       setMensaje({
@@ -107,6 +110,18 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
             </View>
           )}
 
+          <Text style={styles.etiqueta}>Instrucciones para la familia (opcional)</Text>
+          <TextInput
+            style={styles.campoInstrucciones}
+            accessibilityLabel="Instrucciones para la familia"
+            value={instrucciones}
+            onChangeText={setInstrucciones}
+            placeholder="Explica cómo hacer la práctica en casa. La familia podrá escucharlo en voz alta."
+            multiline
+            maxLength={1500}
+            editable={!guardando}
+          />
+
           <Button
             title={guardando ? 'Guardando...' : 'Guardar práctica'}
             onPress={guardar}
@@ -132,6 +147,16 @@ const styles = StyleSheet.create({
   etiqueta: { fontSize: 13, color: '#555', marginBottom: 4 },
   textoVacio: { fontStyle: 'italic', color: '#666' },
   pickerContainer: { borderWidth: 1, borderColor: '#ccc', borderRadius: 5, marginBottom: 15 },
+  campoInstrucciones: {
+    minHeight: 90,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
+    backgroundColor: '#fff',
+    textAlignVertical: 'top',
+  },
   detalleModulo: { backgroundColor: '#f5f5f5', padding: 12, borderRadius: 6, marginBottom: 15 },
   detalleTitulo: { fontWeight: 'bold', marginBottom: 4 },
   detalleTexto: { color: '#444', marginBottom: 2 },

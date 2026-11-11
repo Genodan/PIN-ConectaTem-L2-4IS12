@@ -22,6 +22,8 @@ export interface NuevaPractica {
   terapeutaId: string;
   pacienteId: string;
   moduloId: string;
+  // UT 1406: instrucciones de la terapeuta para la familia (opcionales)
+  instrucciones?: string | null;
 }
 
 // Los módulos son el catálogo de prácticas: título, objetivo y vídeo guía.
@@ -48,7 +50,9 @@ export const obtenerPacientesDeTerapeuta = async (terapeutaId: string): Promise<
 };
 
 // Crea una práctica: asigna un módulo a un paciente, en estado pendiente
-export const crearPractica = async ({ terapeutaId, pacienteId, moduloId }: NuevaPractica) => {
+export const crearPractica = async ({ terapeutaId, pacienteId, moduloId, instrucciones }: NuevaPractica) => {
+  // Las instrucciones se guardan tal cual las escribe la terapeuta (sin espacios sobrantes); si están vacías, no se guardan
+  const textoInstrucciones = instrucciones?.trim();
   const { data, error } = await supabase
     .from('tareas')
     .insert({
@@ -57,6 +61,7 @@ export const crearPractica = async ({ terapeutaId, pacienteId, moduloId }: Nueva
       modulo_id: moduloId,
       estado: ESTADO_PRACTICA_PENDIENTE,
       fecha_asignacion: new Date().toISOString(),
+      ...(textoInstrucciones ? { instrucciones: textoInstrucciones } : {}),
     })
     .select();
 
@@ -78,7 +83,7 @@ export const repetirPractica = async (practicaId: string) => {
 
   const { data: original, error: errorOriginal } = await supabase
     .from('tareas')
-    .select('id, terapeuta_id, paciente_id, modulo_id, estado')
+    .select('id, terapeuta_id, paciente_id, modulo_id, estado, instrucciones')
     .eq('id', practicaId)
     .single();
 
@@ -107,6 +112,8 @@ export const repetirPractica = async (practicaId: string) => {
       terapeutaId: original.terapeuta_id,
       pacienteId: original.paciente_id,
       moduloId: original.modulo_id,
+      // La práctica repetida conserva las instrucciones de la terapeuta (UT 1406)
+      instrucciones: original.instrucciones,
     });
   } catch (e) {
     throw fallo(e instanceof Error ? e.message : 'error desconocido');

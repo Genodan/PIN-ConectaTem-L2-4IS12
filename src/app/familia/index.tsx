@@ -26,6 +26,7 @@ import {
 } from '../../services/panelFamiliaService';
 import { FeedbackDePractica } from '../../components/FeedbackDePractica';
 import { RepetirPractica } from '../../components/RepetirPractica';
+import { EscucharInstrucciones } from '../../components/EscucharInstrucciones';
 
 // Helper compatible con Web y Móvil para mostrar alertas y notificaciones
 const mostrarAlerta = (titulo: string, mensaje?: string) => {
@@ -393,6 +394,9 @@ export default function InicioFamilia() {
             {/* Pendiente: se puede practicar y enviar el vídeo */}
             {esSeleccionada && tarea.estado === 'pendientes' && (
               <View style={styles.detalleTarea}>
+                {/* UT 1406: las instrucciones de la terapeuta, con botón para escucharlas */}
+                {tarea.instrucciones?.trim() ? <EscucharInstrucciones texto={tarea.instrucciones} /> : null}
+
                 <Text style={styles.label}>Objetivo:</Text>
                 <Text style={styles.texto}>{modulo?.objetivo || 'Sin objetivo'}</Text>
 
