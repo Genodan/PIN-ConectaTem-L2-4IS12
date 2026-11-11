@@ -1,4 +1,4 @@
-import { obtenerTareasPendientes, enviarPractica } from '../src/services/tareasService';
+import { obtenerTareasPendientes, enviarPractica, obtenerUrlVideo } from '../src/services/tareasService';
 import { supabase } from '../src/utils/supabase';
 
 jest.mock('../src/utils/supabase', () => ({
@@ -41,11 +41,9 @@ describe('Servicio de Tareas - Realizar Prácticas', () => {
   });
 });
 
-// enviarPractica: sube el vídeo al bucket «videos-practicas», pide su URL pública y la guarda en la tarea
+// enviarPractica: sube el vídeo al bucket privado «videos-practicas» y guarda su RUTA en la tarea (no una URL)
 describe('Servicio de Tareas - Enviar la práctica', () => {
-  const URL_PUBLICA = 'https://storage.test/videos-practicas/clip.webm';
   const mockUpload = jest.fn();
-  const mockGetPublicUrl = jest.fn();
   const mockUpdate = jest.fn();
 
   // La cadena de la actualización: update(...) -> eq('id') -> select()
@@ -68,18 +66,17 @@ describe('Servicio de Tareas - Enviar la práctica', () => {
     // enviarPractica escribe en la consola los errores que relanza: se silencia en las pruebas
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockUpload.mockResolvedValue({ data: { path: 'clip' }, error: null });
-    mockGetPublicUrl.mockReturnValue({ data: { publicUrl: URL_PUBLICA } });
-    (supabase.storage.from as jest.Mock).mockReturnValue({ upload: mockUpload, getPublicUrl: mockGetPublicUrl });
+    (supabase.storage.from as jest.Mock).mockReturnValue({ upload: mockUpload });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('sube el vídeo al bucket con su tipo y su extensión, y guarda la URL pública en la tarea', async () => {
+  it('sube el vídeo al bucket con su tipo y su extensión, y guarda su ruta (no una URL) en la tarea', async () => {
     const blob = simularVideo('video/webm;codecs=vp9');
     const { mockEq } = simularActualizacion({
-      data: [{ id: 'tarea-1', estado: 'completada', video_url: URL_PUBLICA }],
+      data: [{ id: 'tarea-1', estado: 'completada', video_url: 'tarea_tarea-1_1.webm' }],
       error: null,
     });
 
@@ -92,9 +89,11 @@ describe('Servicio de Tareas - Enviar la práctica', () => {
       contentType: 'video/webm;codecs=vp9',
     });
     expect(supabase.from).toHaveBeenCalledWith('tareas');
+    // La ruta guardada es el nombre con el que se ha subido el fichero
+    const rutaSubida = mockUpload.mock.calls[0][0];
     expect(mockUpdate).toHaveBeenCalledWith({
       estado: 'completada',
-      video_url: URL_PUBLICA,
+      video_url: rutaSubida,
       fecha_envio: expect.any(String),
     });
     expect(mockEq).toHaveBeenCalledWith('id', 'tarea-1');
@@ -136,5 +135,47 @@ describe('Servicio de Tareas - Enviar la práctica', () => {
     await expect(enviarPractica('tarea-1', 'file:///videos/clip.mp4')).rejects.toThrow(
       'No se pudo actualizar la tarea en Supabase.',
     );
+  });
+});
+
+
+// obtenerUrlVideo: el bucket es privado, así que el vídeo se abre con una URL firmada que caduca
+describe('Servicio de Tareas - Abrir el vídeo de una práctica', () => {
+  const mockCreateSignedUrl = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (supabase.storage.from as jest.Mock).mockReturnValue({ createSignedUrl: mockCreateSignedUrl });
+  });
+
+  it('firma la ruta guardada con una validez de 1 hora', async () => {
+    mockCreateSignedUrl.mockResolvedValue({ data: { signedUrl: 'https://storage.test/firmada?token=abc' }, error: null });
+
+    const url = await obtenerUrlVideo('tarea_tarea-1_123.webm');
+
+    expect(supabase.storage.from).toHaveBeenCalledWith('videos-practicas');
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith('tarea_tarea-1_123.webm', 3600);
+    expect(url).toBe('https://storage.test/firmada?token=abc');
+  });
+
+  it('si la ruta lleva el nombre del bucket delante, se lo quita antes de firmar', async () => {
+    mockCreateSignedUrl.mockResolvedValue({ data: { signedUrl: 'https://storage.test/firmada' }, error: null });
+
+    await obtenerUrlVideo('videos-practicas/tarea_tarea-1_123.webm');
+
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith('tarea_tarea-1_123.webm', 3600);
+  });
+
+  it('una práctica enviada antes del cambio guarda una URL completa: se devuelve tal cual', async () => {
+    const urlAntigua = 'https://x.supabase.co/storage/v1/object/public/videos-practicas/clip.mp4';
+
+    await expect(obtenerUrlVideo(urlAntigua)).resolves.toBe(urlAntigua);
+    expect(mockCreateSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('si no se puede firmar, lanza un error con el motivo', async () => {
+    mockCreateSignedUrl.mockResolvedValue({ data: null, error: { message: 'Object not found' } });
+
+    await expect(obtenerUrlVideo('no-existe.mp4')).rejects.toThrow('No se pudo cargar el vídeo: Object not found');
   });
 });

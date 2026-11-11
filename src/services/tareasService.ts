@@ -1,5 +1,9 @@
 import { supabase } from '../utils/supabase';
 
+// Bucket privado de los vídeos que graba la familia: solo se ven con una URL firmada que caduca.
+const BUCKET_VIDEOS = 'videos-practicas';
+const SEGUNDOS_VALIDEZ_VIDEO = 3600;
+
 // 1. Obtener todos los pacientes para el desplegable de la familia
 export const obtenerTodosLosPacientes = async () => {
   const { data, error } = await supabase
@@ -58,28 +62,21 @@ export const enviarPractica = async (tareaId: string, archivoUri: string) => {
     // 3. Crear un nombre de archivo completamente limpio
     const nombreArchivo = `tarea_${tareaId}_${Date.now()}.${extension}`;
 
-    // 4. Subir el archivo al bucket 'videos-practicas' de Supabase
+    // 4. Subir el archivo al bucket privado de vídeos
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('videos-practicas')
+      .from(BUCKET_VIDEOS)
       .upload(nombreArchivo, blob, {
         contentType: mimeType, // Le decimos a Supabase el tipo exacto de vídeo
       });
 
     if (uploadError) throw new Error('Fallo al subir el vídeo: ' + uploadError.message);
 
-    // 5. Obtener la URL pública y accesible desde cualquier dispositivo
-    const { data: publicUrlData } = supabase.storage
-      .from('videos-practicas')
-      .getPublicUrl(nombreArchivo);
-
-    const videoUrlPublica = publicUrlData.publicUrl;
-
-    // 6. Guardar la URL pública en la tabla tareas
+    // 5. Guardar la RUTA del vídeo (no una URL) en la tabla tareas; la URL firmada se pide al verlo
     const { data, error } = await supabase
       .from('tareas')
       .update({ 
         estado: 'completada', 
-        video_url: videoUrlPublica,
+        video_url: nombreArchivo,
         fecha_envio: new Date().toISOString()
       })
       .eq('id', tareaId)
@@ -93,6 +90,19 @@ export const enviarPractica = async (tareaId: string, archivoUri: string) => {
     console.error("Error en enviarPractica:", error);
     throw error;
   }
+};
+
+// Convierte lo guardado en tareas.video_url en una URL para abrir el vídeo.
+// Ahora se guarda la ruta del fichero y se firma al momento (caduca en 1 hora). Las prácticas enviadas
+// antes del cambio guardan una URL pública completa: se devuelve tal cual hasta que se migren.
+export const obtenerUrlVideo = async (videoUrl: string): Promise<string> => {
+  if (/^https?:\/\//.test(videoUrl)) return videoUrl;
+  const ruta = videoUrl.replace(new RegExp(`^${BUCKET_VIDEOS}/`), '');
+  const { data, error } = await supabase.storage.from(BUCKET_VIDEOS).createSignedUrl(ruta, SEGUNDOS_VALIDEZ_VIDEO);
+  if (error || !data) {
+    throw new Error('No se pudo cargar el vídeo: ' + (error?.message ?? 'sin respuesta'));
+  }
+  return data.signedUrl;
 };
 
 // 4. Obtener las tareas completadas (Bandeja de entrada del terapeuta)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Alert } from 'react-native';
-import { obtenerTareasCompletadas } from '../services/tareasService';
+import { obtenerTareasCompletadas, obtenerUrlVideo } from '../services/tareasService';
 import { DarFeedback } from './DarFeedback';
 
 export const RevisionTareas = ({ terapeutaIdActual }: { terapeutaIdActual: string }) => {
@@ -31,6 +31,15 @@ export const RevisionTareas = ({ terapeutaIdActual }: { terapeutaIdActual: strin
   const alEnviarFeedback = () => {
     setAviso('Feedback enviado. La práctica pasa a «Con feedback».');
     cargarTareas();
+  };
+
+  // El vídeo está en un bucket privado: se pide una URL temporal justo al abrirlo
+  const abrirVideo = async (videoUrl: string) => {
+    try {
+      await Linking.openURL(await obtenerUrlVideo(videoUrl));
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   if (cargando) return <ActivityIndicator size="small" color="#0000ff" />;
@@ -66,7 +75,7 @@ export const RevisionTareas = ({ terapeutaIdActual }: { terapeutaIdActual: strin
               {tarea.video_url && (
                 <TouchableOpacity 
                   style={styles.botonVideo} 
-                  onPress={() => Linking.openURL(tarea.video_url)}
+                  onPress={() => abrirVideo(tarea.video_url)}
                 >
                   <Text style={styles.textoBotonVideo}>▶️ Ver vídeo de la práctica</Text>
                 </TouchableOpacity>
