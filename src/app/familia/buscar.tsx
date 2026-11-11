@@ -25,6 +25,8 @@ import {
   obtenerFechaEvaluacion,
 } from '../../services/busquedaFeedbackService';
 import { FeedbackDePractica } from '../../components/FeedbackDePractica';
+import { CalendarioMes, CampoFecha } from '../../components/CalendarioFechas';
+import { aTextoISO, inicioDelDia } from '../../services/calendarioService';
 
 type ModoBusqueda = 'palabra' | 'modulo' | 'fecha';
 
@@ -47,9 +49,14 @@ export default function BuscarFeedbacksScreen() {
   // Estado del filtro por módulo
   const [modulosSeleccionados, setModulosSeleccionados] = useState<string[]>([]);
 
-  // Estado del filtro por fecha
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  // Estado del filtro por fecha (UT 1585: se eligen en un calendario, no se escriben)
+  const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
+  const [fechaFin, setFechaFin] = useState<Date | null>(null);
+  const [calendarioAbierto, setCalendarioAbierto] = useState<'inicio' | 'fin' | null>(null);
+  const hoy = useMemo(() => inicioDelDia(new Date()), []);
+
+  const alternarCalendario = (cual: 'inicio' | 'fin') =>
+    setCalendarioAbierto((actual) => (actual === cual ? null : cual));
 
   // Cargar lista de pacientes (simulación de login/sesión)
   useEffect(() => {
@@ -128,7 +135,11 @@ export default function BuscarFeedbacksScreen() {
       return filtrarPorModulos(feedbacksBase, modulosSeleccionados);
     }
     if (modo === 'fecha') {
-      return filtrarPorPeriodoFecha(feedbacksBase, fechaInicio, fechaFin);
+      return filtrarPorPeriodoFecha(
+        feedbacksBase,
+        fechaInicio ? aTextoISO(fechaInicio) : '',
+        fechaFin ? aTextoISO(fechaFin) : '',
+      );
     }
     return feedbacksBase;
   }, [modo, feedbacksBase, palabra, modulosSeleccionados, fechaInicio, fechaFin]);
@@ -299,45 +310,66 @@ export default function BuscarFeedbacksScreen() {
           <View>
             <Text style={styles.tituloModo}>📅 Filtrar por periodo de evaluación</Text>
             <Text style={styles.descripcionModo}>
-              Introduce las dos fechas del periodo para ver los feedbacks evaluados en ese intervalo:
+              Elige las dos fechas del periodo en el calendario para ver los feedbacks evaluados en ese
+              intervalo:
             </Text>
 
             <View style={styles.filaFechas}>
-              <View style={styles.columnaFecha}>
-                <Text style={styles.labelFecha}>Fecha inicio (desde):</Text>
-                <TextInput
-                  testID="input-fecha-inicio"
-                  style={styles.inputTexto}
-                  placeholder="DD-MM-AAAA"
-                  value={fechaInicio}
-                  onChangeText={setFechaInicio}
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.columnaFecha}>
-                <Text style={styles.labelFecha}>Fecha fin (hasta):</Text>
-                <TextInput
-                  testID="input-fecha-fin"
-                  style={styles.inputTexto}
-                  placeholder="DD-MM-AAAA"
-                  value={fechaFin}
-                  onChangeText={setFechaFin}
-                  autoCapitalize="none"
-                />
-              </View>
+              <CampoFecha
+                etiqueta="Fecha inicio (desde):"
+                testID="campo-fecha-inicio"
+                valor={fechaInicio}
+                abierto={calendarioAbierto === 'inicio'}
+                onPress={() => alternarCalendario('inicio')}
+              />
+              <CampoFecha
+                etiqueta="Fecha fin (hasta):"
+                testID="campo-fecha-fin"
+                valor={fechaFin}
+                abierto={calendarioAbierto === 'fin'}
+                onPress={() => alternarCalendario('fin')}
+              />
             </View>
 
+            {/* «Desde» no puede pasar de «Hasta»; «Hasta» no puede ser anterior a «Desde»; ninguna es futura */}
+            {calendarioAbierto === 'inicio' && (
+              <CalendarioMes
+                key="calendario-inicio"
+                testID="calendario-inicio"
+                valor={fechaInicio}
+                max={fechaFin ?? hoy}
+                onElegir={(f) => {
+                  setFechaInicio(f);
+                  setCalendarioAbierto(null);
+                }}
+              />
+            )}
+            {calendarioAbierto === 'fin' && (
+              <CalendarioMes
+                key="calendario-fin"
+                testID="calendario-fin"
+                valor={fechaFin}
+                marcado={fechaInicio}
+                min={fechaInicio}
+                max={hoy}
+                onElegir={(f) => {
+                  setFechaFin(f);
+                  setCalendarioAbierto(null);
+                }}
+              />
+            )}
+
             <Text style={styles.formatoHint}>
-              Formatos válidos: AAAA-MM-DD (ej: 2026-10-01) o DD/MM/AAAA (ej: 01/10/2026).
+              Solo se pueden elegir días que ya han pasado. «Hasta» no admite días anteriores a «Desde».
             </Text>
 
-            {(fechaInicio.length > 0 || fechaFin.length > 0) && (
+            {(fechaInicio !== null || fechaFin !== null) && (
               <TouchableOpacity
                 style={styles.botonLimpiar}
                 onPress={() => {
-                  setFechaInicio('');
-                  setFechaFin('');
+                  setFechaInicio(null);
+                  setFechaFin(null);
+                  setCalendarioAbierto(null);
                 }}
               >
                 <Text style={styles.textoBotonLimpiar}>Limpiar fechas</Text>
@@ -584,15 +616,6 @@ const styles = StyleSheet.create({
   filaFechas: {
     flexDirection: 'row',
     gap: 12,
-  },
-  columnaFecha: {
-    flex: 1,
-  },
-  labelFecha: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 4,
   },
   formatoHint: {
     fontSize: 11,

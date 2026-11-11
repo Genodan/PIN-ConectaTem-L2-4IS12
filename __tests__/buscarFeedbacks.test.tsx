@@ -213,44 +213,142 @@ describe('Búsqueda de Feedbacks (Vista Familia)', () => {
       expect(screen.getByText('Módulo: El Espejo')).toBeOnTheScreen();
     });
 
-    it('busca por fecha especificando un periodo', async () => {
-      await render(<BuscarFeedbacksScreen />);
-      await screen.findByText('Resultados (2)');
+    describe('por fecha, con calendario (UT 1585)', () => {
+      // Se falsea solo la fecha: hoy es 11/11/2026. El resto de temporizadores sigue siendo real.
+      beforeEach(() => {
+        jest.useFakeTimers({
+          now: new Date(2026, 10, 11, 10, 0, 0),
+          doNotFake: [
+            'hrtime',
+            'nextTick',
+            'performance',
+            'queueMicrotask',
+            'requestAnimationFrame',
+            'cancelAnimationFrame',
+            'requestIdleCallback',
+            'cancelIdleCallback',
+            'setImmediate',
+            'clearImmediate',
+            'setInterval',
+            'clearInterval',
+            'setTimeout',
+            'clearTimeout',
+          ],
+        });
+      });
+      afterEach(() => {
+        jest.useRealTimers();
+      });
 
-      // Cambiar a la pestaña "Por fecha"
-      await fireEvent.press(screen.getByTestId('tab-fecha'));
+      const abrirPorFecha = async () => {
+        await render(<BuscarFeedbacksScreen />);
+        await screen.findByText('Resultados (2)');
+        await fireEvent.press(screen.getByTestId('tab-fecha'));
+      };
 
-      const inputInicio = screen.getByTestId('input-fecha-inicio');
-      const inputFin = screen.getByTestId('input-fecha-fin');
+      // Elige un día de octubre de 2026 en el calendario que esté abierto (arranca en noviembre)
+      const elegirDiaDeOctubre = async (campo: string, dia: string) => {
+        await fireEvent.press(screen.getByTestId(campo));
+        await fireEvent.press(screen.getByTestId('mes-anterior'));
+        expect(screen.getByText('octubre de 2026')).toBeOnTheScreen();
+        await fireEvent.press(screen.getByTestId(`dia-2026-10-${dia}`));
+      };
 
-      // 1. Periodo que abarca solo el primer feedback (15 de octubre de 2026)
-      await fireEvent.changeText(inputInicio, '2026-10-10');
-      await fireEvent.changeText(inputFin, '2026-10-18');
+      it('los campos empiezan vacíos y sin teclado: no hay donde escribir la fecha', async () => {
+        await abrirPorFecha();
 
-      expect(screen.getByText('Resultados (1)')).toBeOnTheScreen();
-      expect(screen.getByText('Módulo: Pedir más')).toBeOnTheScreen();
-      expect(screen.queryByText('Módulo: El Espejo')).toBeNull();
+        expect(screen.getAllByText('dd/mm/aaaa')).toHaveLength(2);
+        expect(screen.queryByTestId('input-fecha-inicio')).toBeNull();
+        expect(screen.queryByTestId('input-fecha-fin')).toBeNull();
+        expect(screen.queryByTestId('calendario-inicio')).toBeNull();
+        expect(screen.getByText('Resultados (2)')).toBeOnTheScreen();
+      });
 
-      // 2. Periodo que abarca solo el segundo feedback (25 de octubre de 2026)
-      await fireEvent.changeText(inputInicio, '2026-10-20');
-      await fireEvent.changeText(inputFin, '2026-10-30');
+      it('elige el periodo en el calendario: las fechas salen como dd/mm/aaaa y se filtra por ellas', async () => {
+        await abrirPorFecha();
 
-      expect(screen.getByText('Resultados (1)')).toBeOnTheScreen();
-      expect(screen.getByText('Módulo: El Espejo')).toBeOnTheScreen();
-      expect(screen.queryByText('Módulo: Pedir más')).toBeNull();
+        // 1. Periodo que abarca solo el primer feedback (15 de octubre de 2026)
+        await elegirDiaDeOctubre('campo-fecha-inicio', '10');
+        expect(screen.getByText('10/10/2026')).toBeOnTheScreen();
+        expect(screen.queryByTestId('calendario-inicio')).toBeNull(); // se cierra al elegir
+        await elegirDiaDeOctubre('campo-fecha-fin', '18');
+        expect(screen.getByText('18/10/2026')).toBeOnTheScreen();
 
-      // 3. Periodo donde no hay evaluaciones
-      await fireEvent.changeText(inputInicio, '2026-11-01');
-      await fireEvent.changeText(inputFin, '2026-11-15');
+        expect(screen.getByText('Resultados (1)')).toBeOnTheScreen();
+        expect(screen.getByText('Módulo: Pedir más')).toBeOnTheScreen();
+        expect(screen.queryByText('Módulo: El Espejo')).toBeNull();
+      });
 
-      expect(screen.getByText('Resultados (0)')).toBeOnTheScreen();
-      expect(
-        screen.getByText('No se encontraron feedbacks para el criterio de búsqueda seleccionado.'),
-      ).toBeOnTheScreen();
+      it('solo con la fecha «Desde» el periodo queda abierto por el otro lado', async () => {
+        await abrirPorFecha();
 
-      // 4. Limpiar fechas
-      await fireEvent.press(screen.getByText('Limpiar fechas'));
-      expect(screen.getByText('Resultados (2)')).toBeOnTheScreen();
+        await elegirDiaDeOctubre('campo-fecha-inicio', '20');
+
+        expect(screen.getByText('20/10/2026')).toBeOnTheScreen();
+        expect(screen.getByText('Resultados (1)')).toBeOnTheScreen();
+        expect(screen.getByText('Módulo: El Espejo')).toBeOnTheScreen();
+      });
+
+      it('un periodo sin evaluaciones da 0 resultados y «Limpiar fechas» los devuelve todos', async () => {
+        await abrirPorFecha();
+
+        await fireEvent.press(screen.getByTestId('campo-fecha-inicio'));
+        await fireEvent.press(screen.getByTestId('dia-2026-11-03'));
+        await fireEvent.press(screen.getByTestId('campo-fecha-fin'));
+        await fireEvent.press(screen.getByTestId('dia-2026-11-10'));
+
+        expect(screen.getByText('Resultados (0)')).toBeOnTheScreen();
+        expect(
+          screen.getByText('No se encontraron feedbacks para el criterio de búsqueda seleccionado.'),
+        ).toBeOnTheScreen();
+
+        await fireEvent.press(screen.getByText('Limpiar fechas'));
+        expect(screen.getAllByText('dd/mm/aaaa')).toHaveLength(2);
+        expect(screen.getByText('Resultados (2)')).toBeOnTheScreen();
+        expect(screen.queryByText('Limpiar fechas')).toBeNull();
+      });
+
+      it('no deja elegir días futuros ni ir a meses futuros', async () => {
+        await abrirPorFecha();
+        await fireEvent.press(screen.getByTestId('campo-fecha-inicio'));
+
+        expect(screen.getByText('noviembre de 2026')).toBeOnTheScreen();
+        expect(screen.getByTestId('dia-2026-11-11')).toBeEnabled(); // hoy sí
+        expect(screen.getByTestId('dia-2026-11-12')).toBeDisabled(); // mañana no
+        expect(screen.getByTestId('mes-siguiente')).toBeDisabled();
+
+        await fireEvent.press(screen.getByTestId('dia-2026-11-12'));
+        await fireEvent.press(screen.getByTestId('mes-siguiente'));
+
+        expect(screen.getAllByText('dd/mm/aaaa')).toHaveLength(2); // nada elegido
+        expect(screen.getByText('noviembre de 2026')).toBeOnTheScreen(); // no se movió
+      });
+
+      it('«Hasta» no admite días anteriores a «Desde»', async () => {
+        await abrirPorFecha();
+        await elegirDiaDeOctubre('campo-fecha-inicio', '20');
+
+        await fireEvent.press(screen.getByTestId('campo-fecha-fin'));
+        await fireEvent.press(screen.getByTestId('mes-anterior')); // arranca en noviembre: se va a octubre
+        expect(screen.getByTestId('dia-2026-10-19')).toBeDisabled();
+        expect(screen.getByTestId('dia-2026-10-20')).toBeEnabled(); // el mismo día vale
+        expect(screen.getByTestId('mes-anterior')).toBeDisabled(); // septiembre queda entero antes de «Desde»
+
+        await fireEvent.press(screen.getByTestId('dia-2026-10-19'));
+        expect(screen.queryByText('19/10/2026')).toBeNull();
+      });
+
+      it('«Desde» no admite días posteriores a «Hasta»', async () => {
+        await abrirPorFecha();
+        await elegirDiaDeOctubre('campo-fecha-fin', '15');
+
+        await fireEvent.press(screen.getByTestId('campo-fecha-inicio'));
+        // Con «Hasta» elegido, el calendario de «Desde» se abre en el mes de «Hasta»
+        expect(screen.getByText('octubre de 2026')).toBeOnTheScreen();
+        expect(screen.getByTestId('dia-2026-10-16')).toBeDisabled();
+        expect(screen.getByTestId('dia-2026-10-15')).toBeEnabled();
+        expect(screen.getByTestId('mes-siguiente')).toBeDisabled();
+      });
     });
   });
 });
