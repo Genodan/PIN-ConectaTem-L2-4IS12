@@ -73,6 +73,21 @@ describe('Servicio de Prácticas - datos del formulario', () => {
     expect(resultado).toEqual(modulos);
   });
 
+  it('obtiene solo módulos del sistema o del terapeuta indicado', async () => {
+    const modulos = [{ id: 'm1', titulo: 'Módulo de Elena', objetivo: 'Test', video_guia_url: null, terapeuta_id: 'ter-elena' }];
+    const mockOrder = jest.fn().mockResolvedValue({ data: modulos, error: null });
+    const mockOr = jest.fn().mockReturnValue({ order: mockOrder });
+    const mockSelect = jest.fn().mockReturnValue({ or: mockOr });
+    from.mockReturnValue({ select: mockSelect });
+
+    const resultado = await obtenerModulos('ter-elena');
+
+    expect(from).toHaveBeenCalledWith('modulos');
+    expect(mockOr).toHaveBeenCalledWith('terapeuta_id.is.null,terapeuta_id.eq.ter-elena');
+    expect(mockOrder).toHaveBeenCalledWith('id');
+    expect(resultado).toEqual(modulos);
+  });
+
   it('obtiene solo los pacientes de la terapeuta indicada', async () => {
     const pacientes = [{ id: 'p1', nombre_nino: 'Hugo', nombre_familia: 'Sanchis' }];
     const mockOrder = jest.fn().mockResolvedValue({ data: pacientes, error: null });

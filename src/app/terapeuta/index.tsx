@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { AsignacionPacientes } from '../../components/AsignacionPacientes';
-import { RevisionTareas } from '../../components/RevisionTareas'; // <-- 1. IMPORTACIÓN AÑADIDA
+import { RevisionTareas } from '../../components/RevisionTareas';
 import { CrearPractica } from '../../components/CrearPractica';
+import { GestionModulos } from '../../components/GestionModulos';
 import { supabase } from '../../utils/supabase';
 
 export default function InicioTerapeuta() {
   const [terapeutas, setTerapeutas] = useState<any[]>([]);
   const [terapeutaActual, setTerapeutaActual] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [modulosVersion, setModulosVersion] = useState(0);
+
+  const alModificarModulos = () => setModulosVersion((v) => v + 1);
 
   // Cargamos la lista de terapeutas desde Supabase al abrir la pantalla
   useEffect(() => {
@@ -71,9 +75,20 @@ export default function InicioTerapeuta() {
         <AsignacionPacientes terapeutaIdActual={terapeutaActual} />
       )}
 
+      {/* GESTIÓN DE MÓDULOS PERSONALIZADOS */}
+      {terapeutaActual && (
+        <GestionModulos
+          terapeutaIdActual={terapeutaActual}
+          onModuloCambiado={alModificarModulos}
+        />
+      )}
+
       {/* CREAR PRÁCTICA (UT 1094): asignar un módulo a un paciente */}
       {terapeutaActual && (
-        <CrearPractica terapeutaIdActual={terapeutaActual} />
+        <CrearPractica
+          terapeutaIdActual={terapeutaActual}
+          recargarTrigger={modulosVersion}
+        />
       )}
 
       {/* 3. SECCIÓN DE BANDEJA DE ENTRADA (Tareas completadas) */}

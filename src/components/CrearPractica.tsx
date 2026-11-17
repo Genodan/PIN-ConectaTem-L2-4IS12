@@ -13,7 +13,13 @@ type Mensaje = { tipo: 'ok' | 'error'; texto: string };
 
 const textoDeError = (error: unknown) => (error instanceof Error ? error.message : 'Error desconocido');
 
-export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string }) => {
+export const CrearPractica = ({
+  terapeutaIdActual,
+  recargarTrigger,
+}: {
+  terapeutaIdActual: string;
+  recargarTrigger?: number;
+}) => {
   const [pacientes, setPacientes] = useState<PacienteResumen[]>([]);
   const [modulos, setModulos] = useState<ModuloResumen[]>([]);
   const [pacienteId, setPacienteId] = useState<string | null>(null);
@@ -29,7 +35,7 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
     try {
       const [pacientesTerapeuta, listaModulos] = await Promise.all([
         obtenerPacientesDeTerapeuta(terapeutaIdActual),
-        obtenerModulos(),
+        obtenerModulos(terapeutaIdActual),
       ]);
       setPacientes(pacientesTerapeuta);
       setModulos(listaModulos);
@@ -42,11 +48,11 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
     }
   }, [terapeutaIdActual]);
 
-  // Se recarga al cambiar de terapeuta (en el simulador de inicio de sesión)
+  // Se recarga al cambiar de terapeuta o cuando se crea/edita un módulo
   useEffect(() => {
     setMensaje(null);
     cargarDatos();
-  }, [cargarDatos]);
+  }, [cargarDatos, recargarTrigger]);
 
   const guardar = async () => {
     if (!pacienteId || !moduloId) return;
@@ -84,7 +90,11 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
         <View>
           <Text style={styles.etiqueta}>Paciente</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={pacienteId} onValueChange={(valor) => setPacienteId(valor)}>
+            <Picker
+              testID="picker-paciente"
+              selectedValue={pacienteId}
+              onValueChange={(valor) => setPacienteId(valor)}
+            >
               {pacientes.map((p) => (
                 <Picker.Item key={p.id} label={`${p.nombre_nino} (${p.nombre_familia})`} value={p.id} />
               ))}
@@ -93,7 +103,11 @@ export const CrearPractica = ({ terapeutaIdActual }: { terapeutaIdActual: string
 
           <Text style={styles.etiqueta}>Módulo</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={moduloId} onValueChange={(valor) => setModuloId(valor)}>
+            <Picker
+              testID="picker-modulo"
+              selectedValue={moduloId}
+              onValueChange={(valor) => setModuloId(valor)}
+            >
               {modulos.map((m) => (
                 <Picker.Item key={m.id} label={m.titulo} value={m.id} />
               ))}

@@ -16,6 +16,8 @@ export interface ModuloResumen {
   titulo: string;
   objetivo: string;
   video_guia_url: string | null;
+  ideas_materiales?: string[] | string | null;
+  terapeuta_id?: string | null;
 }
 
 export interface NuevaPractica {
@@ -27,11 +29,17 @@ export interface NuevaPractica {
 }
 
 // Los módulos son el catálogo de prácticas: título, objetivo y vídeo guía.
-export const obtenerModulos = async (): Promise<ModuloResumen[]> => {
-  const { data, error } = await supabase
+// Si se indica terapeutaId, solo devuelve módulos con terapeuta_id nulo o igual al terapeuta.
+export const obtenerModulos = async (terapeutaId?: string): Promise<ModuloResumen[]> => {
+  let query = supabase
     .from('modulos')
-    .select('id, titulo, objetivo, video_guia_url')
-    .order('id');
+    .select('id, titulo, objetivo, video_guia_url, ideas_materiales, terapeuta_id');
+
+  if (terapeutaId) {
+    query = query.or(`terapeuta_id.is.null,terapeuta_id.eq.${terapeutaId}`);
+  }
+
+  const { data, error } = await query.order('id');
 
   if (error) throw new Error('Error al cargar los módulos: ' + error.message);
   return (data ?? []) as ModuloResumen[];
