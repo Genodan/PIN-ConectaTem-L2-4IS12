@@ -557,6 +557,19 @@ export default function InicioFamilia() {
         >
           <Text style={styles.textoBotonBuscarFeedbacks}>🔍 Buscar feedbacks</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          testID="boton-calendario-hitos"
+          accessibilityRole="button"
+          style={styles.botonBuscarFeedbacks}
+          onPress={() =>
+            router.push({
+              pathname: '/familia/calendario',
+              params: { pacienteId: pacienteActual ?? '' },
+            })
+          }
+        >
+          <Text style={styles.textoBotonBuscarFeedbacks}>📅 Calendario de hitos</Text>
+        </TouchableOpacity>
       </View>
 
       {verHistorial ? (
