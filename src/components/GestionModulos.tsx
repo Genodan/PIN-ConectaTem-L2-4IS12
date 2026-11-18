@@ -249,7 +249,7 @@ export const GestionModulos = ({
             editable={!guardando}
           />
 
-          <Text style={styles.labelCampo}>Vídeo guía (Bucket «videos guia» o URL)</Text>
+          <Text style={styles.labelCampo}>Vídeo guía (Bucket «videos-guia» o URL)</Text>
           <View style={styles.filaAdjuntarVideo}>
             <TouchableOpacity
               testID="boton-adjuntar-video"
