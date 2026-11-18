@@ -25,6 +25,8 @@ export interface PracticaFamilia {
   fecha_envio: string | null;
   // UT 1406: instrucciones de la terapeuta para la familia (pueden no existir)
   instrucciones?: string | null;
+  // Ruta del audio generado con IA de esas instrucciones (null si aún no existe)
+  instrucciones_audio?: string | null;
   modulos: ModuloPractica | null;
   feedback: FeedbackResumen | null;
 }
@@ -57,6 +59,7 @@ export const obtenerPracticasDelPaciente = async (pacienteId: string): Promise<P
       fecha_asignacion,
       fecha_envio,
       instrucciones,
+      instrucciones_audio,
       modulos ( id, titulo, objetivo, video_guia_url, ideas_materiales ),
       feedbacks ( id, audio_url, enviado_en, fecha_evaluacion, insignia, transcripcion, resumen_estructurado, resumen_aprobado, resumen_escrito )
     `,

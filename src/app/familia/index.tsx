@@ -395,7 +395,9 @@ export default function InicioFamilia() {
             {esSeleccionada && tarea.estado === 'pendientes' && (
               <View style={styles.detalleTarea}>
                 {/* UT 1406: las instrucciones de la terapeuta, con botón para escucharlas */}
-                {tarea.instrucciones?.trim() ? <EscucharInstrucciones texto={tarea.instrucciones} /> : null}
+                {tarea.instrucciones?.trim() ? (
+                  <EscucharInstrucciones texto={tarea.instrucciones} audioRuta={tarea.instrucciones_audio} />
+                ) : null}
 
                 <Text style={styles.label}>Objetivo:</Text>
                 <Text style={styles.texto}>{modulo?.objetivo || 'Sin objetivo'}</Text>

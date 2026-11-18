@@ -1,4 +1,5 @@
 import { supabase } from '../utils/supabase';
+import { solicitarAudioInstrucciones } from './instruccionesAudioService';
 
 // Código de estado que guarda la base de datos. En pantalla se muestra como «Pendiente».
 export const ESTADO_PRACTICA_PENDIENTE = 'pendientes';
@@ -26,6 +27,8 @@ export interface NuevaPractica {
   moduloId: string;
   // UT 1406: instrucciones de la terapeuta para la familia (opcionales)
   instrucciones?: string | null;
+  // Audio ya generado de esas mismas instrucciones (al repetir una práctica se reutiliza)
+  instruccionesAudio?: string | null;
 }
 
 // Los módulos son el catálogo de prácticas: título, objetivo y vídeo guía.
@@ -58,7 +61,7 @@ export const obtenerPacientesDeTerapeuta = async (terapeutaId: string): Promise<
 };
 
 // Crea una práctica: asigna un módulo a un paciente, en estado pendiente
-export const crearPractica = async ({ terapeutaId, pacienteId, moduloId, instrucciones }: NuevaPractica) => {
+export const crearPractica = async ({ terapeutaId, pacienteId, moduloId, instrucciones, instruccionesAudio }: NuevaPractica) => {
   // Las instrucciones se guardan tal cual las escribe la terapeuta (sin espacios sobrantes); si están vacías, no se guardan
   const textoInstrucciones = instrucciones?.trim();
   const { data, error } = await supabase
@@ -70,6 +73,7 @@ export const crearPractica = async ({ terapeutaId, pacienteId, moduloId, instruc
       estado: ESTADO_PRACTICA_PENDIENTE,
       fecha_asignacion: new Date().toISOString(),
       ...(textoInstrucciones ? { instrucciones: textoInstrucciones } : {}),
+      ...(textoInstrucciones && instruccionesAudio ? { instrucciones_audio: instruccionesAudio } : {}),
     })
     .select();
 
@@ -79,6 +83,10 @@ export const crearPractica = async ({ terapeutaId, pacienteId, moduloId, instruc
   if (!data || data.length === 0) {
     throw new Error('No se pudo crear la práctica. Posible bloqueo de permisos (RLS).');
   }
+
+  // UT 1406: el audio de las instrucciones se genera en segundo plano, sin hacer esperar a la terapeuta.
+  // Si ya viene uno (práctica repetida) no se vuelve a generar.
+  if (textoInstrucciones && !instruccionesAudio) solicitarAudioInstrucciones(data[0].id);
 
   return data[0];
 };
@@ -91,7 +99,7 @@ export const repetirPractica = async (practicaId: string) => {
 
   const { data: original, error: errorOriginal } = await supabase
     .from('tareas')
-    .select('id, terapeuta_id, paciente_id, modulo_id, estado, instrucciones')
+    .select('id, terapeuta_id, paciente_id, modulo_id, estado, instrucciones, instrucciones_audio')
     .eq('id', practicaId)
     .single();
 
@@ -122,6 +130,7 @@ export const repetirPractica = async (practicaId: string) => {
       moduloId: original.modulo_id,
       // La práctica repetida conserva las instrucciones de la terapeuta (UT 1406)
       instrucciones: original.instrucciones,
+      instruccionesAudio: original.instrucciones_audio,
     });
   } catch (e) {
     throw fallo(e instanceof Error ? e.message : 'error desconocido');
