@@ -5,15 +5,17 @@ import { AsignacionPacientes } from '../../components/AsignacionPacientes';
 import { RevisionTareas } from '../../components/RevisionTareas';
 import { CrearPractica } from '../../components/CrearPractica';
 import { GestionModulos } from '../../components/GestionModulos';
+import { AltaPaciente } from '../../components/AltaPaciente';
 import { supabase } from '../../utils/supabase';
 
 export default function InicioTerapeuta() {
   const [terapeutas, setTerapeutas] = useState<any[]>([]);
   const [terapeutaActual, setTerapeutaActual] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [modulosVersion, setModulosVersion] = useState(0);
+  // Sube cuando se crea/edita un módulo o se da de alta un paciente: «Crear práctica» recarga sus desplegables
+  const [datosVersion, setDatosVersion] = useState(0);
 
-  const alModificarModulos = () => setModulosVersion((v) => v + 1);
+  const alCambiarDatos = () => setDatosVersion((v) => v + 1);
 
   // Cargamos la lista de terapeutas desde Supabase al abrir la pantalla
   useEffect(() => {
@@ -75,11 +77,19 @@ export default function InicioTerapeuta() {
         <AsignacionPacientes terapeutaIdActual={terapeutaActual} />
       )}
 
+      {/* ALTA DE PACIENTES (UT 1354): el paciente nuevo queda asignado a esta terapeuta */}
+      {terapeutaActual && (
+        <AltaPaciente
+          terapeutaIdActual={terapeutaActual}
+          onPacienteCreado={alCambiarDatos}
+        />
+      )}
+
       {/* GESTIÓN DE MÓDULOS PERSONALIZADOS */}
       {terapeutaActual && (
         <GestionModulos
           terapeutaIdActual={terapeutaActual}
-          onModuloCambiado={alModificarModulos}
+          onModuloCambiado={alCambiarDatos}
         />
       )}
 
@@ -87,7 +97,7 @@ export default function InicioTerapeuta() {
       {terapeutaActual && (
         <CrearPractica
           terapeutaIdActual={terapeutaActual}
-          recargarTrigger={modulosVersion}
+          recargarTrigger={datosVersion}
         />
       )}
 
