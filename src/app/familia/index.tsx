@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ReproductorVideoGuia } from '../../components/ReproductorVideoGuia';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -406,7 +407,7 @@ export default function InicioFamilia() {
                 <Text style={styles.texto}>{materialesTexto}</Text>
 
                 <Text style={styles.label}>Vídeo Guía:</Text>
-                <Text style={styles.enlace}>{modulo?.video_guia_url || 'Sin enlace'}</Text>
+                <ReproductorVideoGuia url={modulo?.video_guia_url} />
 
                 {/* SECCIÓN DE SELECCIÓN DE ARCHIVO Y GRABACIÓN */}
                 <View style={styles.seccionArchivo}>
@@ -558,6 +559,19 @@ export default function InicioFamilia() {
           }
         >
           <Text style={styles.textoBotonBuscarFeedbacks}>🔍 Buscar feedbacks</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="boton-calendario-hitos"
+          accessibilityRole="button"
+          style={styles.botonBuscarFeedbacks}
+          onPress={() =>
+            router.push({
+              pathname: '/familia/calendario',
+              params: { pacienteId: pacienteActual ?? '' },
+            })
+          }
+        >
+          <Text style={styles.textoBotonBuscarFeedbacks}>📅 Calendario de hitos</Text>
         </TouchableOpacity>
       </View>
 

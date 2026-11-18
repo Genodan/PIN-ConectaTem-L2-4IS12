@@ -45,6 +45,12 @@ export function CampoFecha({ etiqueta, testID, valor, abierto, onPress }: CampoF
   );
 }
 
+/** Punto de color bajo el número de un día (UT 1404). `id` distingue el tipo de marca. */
+export interface MarcaDia {
+  id: string;
+  color: string;
+}
+
 interface CalendarioMesProps {
   /** Día elegido (se pinta con relleno azul). */
   valor: Date | null;
@@ -56,6 +62,8 @@ interface CalendarioMesProps {
   max?: Date | null;
   /** Mes que se enseña al abrir. Por defecto: el del día elegido, o el de `max`, o el de hoy. */
   mesInicial?: Date;
+  /** Marcas por día (clave `aaaa-mm-dd`): puntos de color bajo el número. */
+  marcas?: Record<string, MarcaDia[]>;
   onElegir: (fecha: Date) => void;
   testID?: string;
 }
@@ -66,6 +74,7 @@ export function CalendarioMes({
   min = null,
   max = null,
   mesInicial,
+  marcas,
   onElegir,
   testID = 'calendario',
 }: CalendarioMesProps) {
@@ -129,10 +138,12 @@ export function CalendarioMes({
             const deshabilitado = diaDeshabilitado(fecha, min, max);
             const elegido = mismoDia(fecha, valor);
             const referencia = !elegido && mismoDia(fecha, marcado);
+            const claveDia = aTextoISO(fecha);
+            const marcasDelDia = marcas?.[claveDia] ?? [];
             return (
               <TouchableOpacity
                 key={j}
-                testID={`dia-${aTextoISO(fecha)}`}
+                testID={`dia-${claveDia}`}
                 accessibilityRole="button"
                 accessibilityLabel={textoLargoDeFecha(fecha)}
                 accessibilityState={{ disabled: deshabilitado, selected: elegido }}
@@ -155,6 +166,22 @@ export function CalendarioMes({
                 >
                   {dia}
                 </Text>
+                {marcasDelDia.length > 0 && (
+                  <View style={styles.marcas} pointerEvents="none">
+                    {marcasDelDia.map((marca) => (
+                      <View
+                        key={marca.id}
+                        testID={`marca-${claveDia}-${marca.id}`}
+                        style={[
+                          styles.marca,
+                          elegido
+                            ? [styles.marcaSobreElegido, { backgroundColor: '#fff', borderColor: marca.color }]
+                            : { backgroundColor: marca.color },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -277,5 +304,25 @@ const styles = StyleSheet.create({
   },
   textoDeshabilitado: {
     color: '#bebec6',
+  },
+  marcas: {
+    position: 'absolute',
+    bottom: 2,
+    flexDirection: 'row',
+    gap: 3,
+  },
+  marca: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  // En el día elegido (fondo azul oscuro) el punto es blanco con el borde del color de su tipo: así se distingue
+  marcaSobreElegido: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
   },
 });

@@ -1,6 +1,6 @@
 import { supabase } from '../utils/supabase';
 
-export const BUCKET_VIDEOS_GUIA = 'videos guia';
+export const BUCKET_VIDEOS_GUIA = 'videos-guia';
 
 export interface Modulo {
   id: string;
