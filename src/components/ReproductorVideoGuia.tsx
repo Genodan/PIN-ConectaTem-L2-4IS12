@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,9 @@ import {
   ActivityIndicator,
   Platform,
   TouchableOpacity,
-  Image,
-  Linking,
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
+import { WebView } from 'react-native-webview';
 import { supabase } from '../utils/supabase';
 import { BUCKET_VIDEOS_GUIA } from '../services/modulosService';
 
@@ -30,6 +29,7 @@ const esUrlYouTube = (url: string): boolean => {
 };
 
 export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
+  const videoRef = useRef<Video>(null);
   const [uriFinal, setUriFinal] = useState<string | null>(null);
   const [youtubeId, setYoutubeId] = useState<string | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
@@ -92,7 +92,6 @@ export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
           .createSignedUrl(urlLimpia, 3600);
 
         if (storageError || !data?.signedUrl) {
-          // Fallback por si el bucket es público sin políticas de firma
           const { data: publicData } = supabase.storage
             .from(BUCKET_VIDEOS_GUIA)
             .getPublicUrl(urlLimpia);
@@ -121,12 +120,10 @@ export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
     };
   }, [url]);
 
-  // Sin vídeo configurado en el módulo
   if (!url?.trim()) {
     return <Text style={styles.sinVideo}>Este módulo no tiene vídeo guía asignado.</Text>;
   }
 
-  // Cargando URL desde Supabase
   if (cargando) {
     return (
       <View style={styles.estadoCaja}>
@@ -136,7 +133,6 @@ export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
     );
   }
 
-  // Error de formato, archivo inexistente o fallo de reproducción
   if (error) {
     return (
       <View style={styles.errorCaja}>
@@ -146,18 +142,17 @@ export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
     );
   }
 
-  // Reproductor para YouTube
+  // Reproductor embebido 16:9 para YouTube (Web y Móvil)
   if (youtubeId) {
     if (Platform.OS === 'web') {
       return (
-        <View style={styles.contenedorReproductor}>
+        <View style={styles.marcoVideo}>
           {React.createElement('iframe', {
-            src: `https://www.youtube.com/embed/${youtubeId}`,
+            src: `https://www.youtube.com/embed/${youtubeId}?rel=0`,
             style: {
               width: '100%',
-              height: 240,
+              height: '100%',
               border: 'none',
-              borderRadius: 8,
             },
             allow:
               'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
@@ -168,42 +163,72 @@ export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
       );
     }
 
-    // En móvil (sin react-native-webview instalado) mostramos miniatura interactiva
+    const htmlYouTube = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+          <style>
+            html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+            iframe { width: 100%; height: 100%; border: 0; }
+          </style>
+        </head>
+        <body>
+          <iframe
+            src="https://www.youtube.com/embed/${youtubeId}?rel=0&playsinline=1"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowfullscreen
+          ></iframe>
+        </body>
+      </html>
+    `;
+
     return (
-      <TouchableOpacity
-        style={styles.youtubeMovilCard}
-        onPress={() => uriFinal && Linking.openURL(uriFinal)}
-        activeOpacity={0.85}
-      >
-        <Image
-          source={{ uri: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` }}
-          style={styles.youtubeThumbnail}
-          resizeMode="cover"
+      <View style={styles.marcoVideo}>
+        <WebView
+          source={{ html: htmlYouTube, baseUrl: 'https://www.youtube.com' }}
+          style={styles.rellenoCompleto}
+          javaScriptEnabled
+          domStorageEnabled
+          allowsFullscreenVideo
+          allowsInlineMediaPlayback
+          nestedScrollEnabled
+          mediaPlaybackRequiresUserAction={false}
+          onError={() => {
+            setError('No se pudo cargar el vídeo de YouTube en este dispositivo.');
+          }}
         />
-        <View style={styles.youtubeOverlay}>
-          <Text style={styles.youtubePlayIcon}>▶</Text>
-          <Text style={styles.youtubePlayText}>Ver vídeo guía en YouTube</Text>
-        </View>
-      </TouchableOpacity>
+      </View>
     );
   }
 
-  // Reproductor nativo/web para vídeos de Supabase Storage o enlaces directos (.mp4, .webm, .mov)
+  // Reproductor 16:9 para vídeos de Supabase Storage o enlaces directos
   if (uriFinal) {
     return (
-      <View style={styles.contenedorReproductor}>
-        <Video
-          source={{ uri: uriFinal }}
-          style={styles.videoNativo}
-          useNativeControls
-          resizeMode={ResizeMode.CONTAIN}
-          shouldPlay={false}
-          onError={() => {
-            setError(
-              'El archivo no existe, está dañado o el formato de vídeo no es compatible con este dispositivo.'
-            );
-          }}
-        />
+      <View style={styles.bloqueVideo}>
+        <View style={styles.marcoVideo}>
+          <Video
+            ref={videoRef}
+            source={{ uri: uriFinal }}
+            style={styles.rellenoCompleto}
+            videoStyle={styles.rellenoCompleto}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+            shouldPlay={false}
+            onError={() => {
+              setError(
+                'El archivo no existe, está dañado o el formato de vídeo no es compatible con este dispositivo.'
+              );
+            }}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.botonPantallaCompleta}
+          onPress={() => videoRef.current?.presentFullscreenPlayer()}
+        >
+          <Text style={styles.textoPantallaCompleta}>⛶ Ver a pantalla completa</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -212,17 +237,41 @@ export const ReproductorVideoGuia = ({ url }: ReproductorVideoGuiaProps) => {
 };
 
 const styles = StyleSheet.create({
-  contenedorReproductor: {
-    marginTop: 6,
-    marginBottom: 15,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-  },
-  videoNativo: {
+  bloqueVideo: {
     width: '100%',
-    height: 230,
-    backgroundColor: '#000',
+    maxWidth: 640,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  marcoVideo: {
+    width: '100%',
+    maxWidth: 640,
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#d9d9d9',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  rellenoCompleto: {
+    width: '100%',
+    height: '100%',
+  },
+  botonPantallaCompleta: {
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#e6f7ff',
+    borderWidth: 1,
+    borderColor: '#91d5ff',
+  },
+  textoPantallaCompleta: {
+    color: '#0050b3',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   sinVideo: {
     color: '#666',
@@ -261,38 +310,5 @@ const styles = StyleSheet.create({
   errorDetalle: {
     color: '#820014',
     fontSize: 12,
-  },
-  youtubeMovilCard: {
-    marginTop: 6,
-    marginBottom: 15,
-    height: 200,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  youtubeThumbnail: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.75,
-  },
-  youtubeOverlay: {
-    position: 'absolute',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-  },
-  youtubePlayIcon: {
-    color: '#fff',
-    fontSize: 22,
-    marginBottom: 2,
-  },
-  youtubePlayText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 13,
   },
 });
