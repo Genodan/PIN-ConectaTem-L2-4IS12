@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ReproductorVideoGuia } from '../../components/ReproductorVideoGuia';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -404,7 +405,7 @@ export default function InicioFamilia() {
                 <Text style={styles.texto}>{materialesTexto}</Text>
 
                 <Text style={styles.label}>Vídeo Guía:</Text>
-                <Text style={styles.enlace}>{modulo?.video_guia_url || 'Sin enlace'}</Text>
+                <ReproductorVideoGuia url={modulo?.video_guia_url} />
 
                 {/* SECCIÓN DE SELECCIÓN DE ARCHIVO Y GRABACIÓN */}
                 <View style={styles.seccionArchivo}>
