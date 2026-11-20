@@ -28,6 +28,8 @@ import {
 import { FeedbackDePractica } from '../../components/FeedbackDePractica';
 import { RepetirPractica } from '../../components/RepetirPractica';
 import { EscucharInstrucciones } from '../../components/EscucharInstrucciones';
+import { MarcaInsignias, RachaFamilia } from '../../components/RachaFamilia';
+import { calcularRacha, insigniasPorPractica } from '../../services/rachaService';
 
 // Helper compatible con Web y Móvil para mostrar alertas y notificaciones
 const mostrarAlerta = (titulo: string, mensaje?: string) => {
@@ -351,6 +353,10 @@ export default function InicioFamilia() {
   // UT 1141: prácticas agrupadas por módulo y, arriba del todo, el feedback más reciente
   const grupos = agruparPorModulo(tareas);
   const masReciente = practicaConFeedbackMasReciente(tareas);
+  // UT 1449: racha semanal e insignias, calculadas con las mismas prácticas. Se ven en el historial,
+  // de forma discreta: el resumen arriba y cada insignia marcada en la práctica donde se consiguió
+  const racha = calcularRacha(tareas);
+  const insigniasDePractica = insigniasPorPractica(racha);
   const nombreNino = pacientes.find((p) => p.id === pacienteActual)?.nombre_nino;
 
   // Tarjeta de una práctica (módulo, fecha, estado y, al abrirla, sus acciones). La usan la vista por módulos y el historial.
@@ -576,11 +582,21 @@ export default function InicioFamilia() {
       </View>
 
       {verHistorial ? (
-        tareas.length === 0 ? (
-          <Text style={styles.textoVacio}>Todavía no hay prácticas para este paciente.</Text>
-        ) : (
-          ordenarPorFechaAsignacion(tareas).map(tarjetaDePractica)
-        )
+        <View>
+          {/* UT 1449: «Vuestro camino» (racha e insignias), solo en el historial */}
+          <RachaFamilia resumen={racha} />
+          <View style={styles.separador} />
+          {tareas.length === 0 ? (
+            <Text style={styles.textoVacio}>Todavía no hay prácticas para este paciente.</Text>
+          ) : (
+            ordenarPorFechaAsignacion(tareas).map((tarea) => (
+              <View key={tarea.id}>
+                {insigniasDePractica[tarea.id] && <MarcaInsignias insignias={insigniasDePractica[tarea.id]} />}
+                {tarjetaDePractica(tarea)}
+              </View>
+            ))
+          )}
+        </View>
       ) : tareas.length === 0 ? (
         <Text style={styles.textoVacio}>Todavía no hay prácticas asignadas para este paciente.</Text>
       ) : (
