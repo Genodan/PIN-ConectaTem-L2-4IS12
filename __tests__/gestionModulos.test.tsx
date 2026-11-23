@@ -152,6 +152,26 @@ describe('PA · Crear y Editar Módulos Personalizados', () => {
       expect(await screen.findByText('El título del módulo es obligatorio.')).toBeOnTheScreen();
       expect(mockCrearModulo).not.toHaveBeenCalled();
     });
+
+    it('inicia plegado si inicialmenteAbierto es false y se despliega al pulsar el botón/cabecera', async () => {
+      mockObtenerModulosPropios.mockResolvedValue([]);
+      await render(
+        <GestionModulos terapeutaIdActual="ter-elena" inicialmenteAbierto={false} />,
+      );
+
+      expect(screen.getByText('Módulos personalizados')).toBeTruthy();
+      expect(screen.queryByTestId('boton-crear-modulo')).toBeNull();
+
+      // Desplegar
+      const botonToggle = screen.getByTestId('boton-toggle-desplegable-modulos');
+      await fireEvent.press(botonToggle);
+
+      expect(await screen.findByTestId('boton-crear-modulo')).toBeTruthy();
+
+      // Plegar
+      await fireEvent.press(botonToggle);
+      expect(screen.queryByTestId('boton-crear-modulo')).toBeNull();
+    });
   });
 
   describe('Editar módulo', () => {

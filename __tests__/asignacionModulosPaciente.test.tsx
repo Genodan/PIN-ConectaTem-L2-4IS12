@@ -167,6 +167,34 @@ describe('UT · Elegir los módulos que trabaja cada paciente', () => {
       expect(screen.getByTestId('estado-modulo-mod-1')).toHaveTextContent('○ No asignado');
       expect(screen.getByText(/no tiene módulos específicos asignados/i)).toBeTruthy();
     });
+
+    it('inicia plegado si inicialmenteAbierto es false y se despliega al pulsar el botón/cabecera', async () => {
+      mockObtenerAsignados.mockResolvedValue([]);
+
+      await render(
+        <AsignacionModulosPaciente
+          terapeutaIdActual="ter-elena"
+          inicialmenteAbierto={false}
+        />,
+      );
+
+      // La cabecera está visible
+      expect(screen.getByText('Módulos de trabajo por paciente')).toBeTruthy();
+      // El contenido interior está oculto
+      expect(screen.queryByTestId('picker-paciente-modulos')).toBeNull();
+
+      // Pulsar la cabecera/botón para desplegar
+      const botonToggle = screen.getByTestId('boton-toggle-desplegable-asignacion');
+      await fireEvent.press(botonToggle);
+
+      // Ahora el contenido interior se despliega con los mismos elementos
+      expect(await screen.findByTestId('picker-paciente-modulos')).toBeTruthy();
+      expect(screen.getByText('Intención Comunicativa')).toBeTruthy();
+
+      // Pulsar de nuevo para plegar
+      await fireEvent.press(botonToggle);
+      expect(screen.queryByTestId('picker-paciente-modulos')).toBeNull();
+    });
   });
 
   describe('Comportamiento al Crear Práctica (CrearPractica)', () => {

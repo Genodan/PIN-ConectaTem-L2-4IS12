@@ -18,6 +18,7 @@ interface Props {
   terapeutaIdActual: string;
   recargarTrigger?: number;
   onModulosAsignadosCambiados?: () => void;
+  inicialmenteAbierto?: boolean;
 }
 
 type Mensaje = { tipo: 'ok' | 'error'; texto: string };
@@ -26,7 +27,9 @@ export const AsignacionModulosPaciente: React.FC<Props> = ({
   terapeutaIdActual,
   recargarTrigger,
   onModulosAsignadosCambiados,
+  inicialmenteAbierto = true,
 }) => {
+  const [desplegado, setDesplegado] = useState(inicialmenteAbierto);
   const [pacientes, setPacientes] = useState<PacienteResumen[]>([]);
   const [pacienteSeleccionadoId, setPacienteSeleccionadoId] = useState<string | null>(null);
   const [modulosDisponibles, setModulosDisponibles] = useState<ModuloResumen[]>([]);
@@ -138,154 +141,177 @@ export const AsignacionModulosPaciente: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Módulos de trabajo por paciente</Text>
-      <Text style={styles.subtitulo}>
-        Elige qué módulos específicos trabaja cada paciente. Al crear una tarea para este paciente,
-        solo se mostrarán los módulos asignados aquí. Si no tiene ninguno asignado, se podrán usar todos.
-      </Text>
+      {/* CABECERA DESPLEGABLE */}
+      <TouchableOpacity
+        testID="boton-toggle-desplegable-asignacion"
+        style={styles.cabeceraColapsable}
+        onPress={() => setDesplegado((prev) => !prev)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cabeceraTextoContenedor}>
+          <Text style={styles.titulo}>Módulos de trabajo por paciente</Text>
+          <Text style={styles.subtituloColapsable}>
+            {desplegado
+              ? 'Toca para plegar la sección'
+              : 'Toca para abrir y asignar/desasignar módulos por paciente'}
+          </Text>
+        </View>
+        <View style={[styles.botonDesplegarIcono, desplegado && styles.botonDesplegarIconoAbierto]}>
+          <Text style={styles.textoIconoDesplegar}>{desplegado ? '▲' : '▼'}</Text>
+        </View>
+      </TouchableOpacity>
 
-      {cargando ? (
-        <ActivityIndicator size="small" color="#0050b3" style={{ marginVertical: 15 }} />
-      ) : pacientes.length === 0 ? (
-        <Text style={styles.textoVacio}>
-          No tienes pacientes asignados todavía en tu cartera. Asigna uno primero.
-        </Text>
-      ) : (
-        <View>
-          {/* SELECTOR DE PACIENTE */}
-          <Text style={styles.labelCampo}>Selecciona el paciente:</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              testID="picker-paciente-modulos"
-              selectedValue={pacienteSeleccionadoId}
-              onValueChange={(val) => setPacienteSeleccionadoId(val)}
-            >
-              {pacientes.map((p) => (
-                <Picker.Item
-                  key={p.id}
-                  label={`${p.nombre_nino} (${p.nombre_familia})`}
-                  value={p.id}
-                />
-              ))}
-            </Picker>
-          </View>
-
-          {/* INFORMACIÓN DE ESTADO DEL PACIENTE */}
-          <View style={styles.cajaEstado} testID="aviso-modulos-paciente">
-            {totalAsignados === 0 ? (
-              <Text style={styles.textoAvisoSinModulos}>
-                ℹ️ <Text style={{ fontWeight: 'bold' }}>{pacienteActual?.nombre_nino || 'El paciente'}</Text> no
-                tiene módulos específicos asignados. Al crearle una tarea, podrás elegir{' '}
-                <Text style={{ fontWeight: 'bold' }}>cualquier módulo disponible</Text>.
-              </Text>
-            ) : (
-              <Text style={styles.textoAvisoConModulos}>
-                ℹ️ <Text style={{ fontWeight: 'bold' }}>{pacienteActual?.nombre_nino || 'El paciente'}</Text> tiene{' '}
-                <Text style={{ fontWeight: 'bold' }}>{totalAsignados} módulo(s)</Text> asignado(s). Al crearle tareas,
-                únicamente se ofrecerán estos módulos.
-              </Text>
-            )}
-          </View>
-
-          {/* MENSAJE DE ÉXITO O ERROR */}
-          {mensaje && (
-            <View
-              style={[
-                styles.cajaMensaje,
-                mensaje.tipo === 'ok' ? styles.cajaMensajeOk : styles.cajaMensajeError,
-              ]}
-            >
-              <Text
-                style={
-                  mensaje.tipo === 'ok' ? styles.textoMensajeOk : styles.textoMensajeError
-                }
-              >
-                {mensaje.texto}
-              </Text>
-            </View>
-          )}
-
-          {/* LISTA DE MÓDULOS ASIGNABLES */}
-          <Text style={[styles.labelCampo, { marginTop: 15 }]}>
-            Módulos asignables ({modulosDisponibles.length}):
+      {desplegado && (
+        <View style={styles.contenidoDesplegable}>
+          <Text style={styles.subtitulo}>
+            Elige qué módulos específicos trabaja cada paciente. Al crear una tarea para este paciente,
+            solo se mostrarán los módulos asignados aquí. Si no tiene ninguno asignado, se podrán usar todos.
           </Text>
 
-          {modulosDisponibles.length === 0 ? (
-            <Text style={styles.textoVacio}>No hay módulos en el catálogo.</Text>
+          {cargando ? (
+            <ActivityIndicator size="small" color="#0050b3" style={{ marginVertical: 15 }} />
+          ) : pacientes.length === 0 ? (
+            <Text style={styles.textoVacio}>
+              No tienes pacientes asignados todavía en tu cartera. Asigna uno primero.
+            </Text>
           ) : (
-            <View style={styles.listaModulos}>
-              {modulosDisponibles.map((modulo) => {
-                const asignado = modulosAsignadosIds.has(modulo.id);
-                const enProceso = procesandoModuloId === modulo.id;
-                const esPropio = modulo.terapeuta_id === terapeutaIdActual;
+            <View>
+              {/* SELECTOR DE PACIENTE */}
+              <Text style={styles.labelCampo}>Selecciona el paciente:</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  testID="picker-paciente-modulos"
+                  selectedValue={pacienteSeleccionadoId}
+                  onValueChange={(val) => setPacienteSeleccionadoId(val)}
+                >
+                  {pacientes.map((p) => (
+                    <Picker.Item
+                      key={p.id}
+                      label={`${p.nombre_nino} (${p.nombre_familia})`}
+                      value={p.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
 
-                return (
-                  <View
-                    key={modulo.id}
-                    style={[
-                      styles.tarjetaModulo,
-                      asignado && styles.tarjetaModuloAsignado,
-                    ]}
-                    testID={`modulo-item-${modulo.id}`}
+              {/* INFORMACIÓN DE ESTADO DEL PACIENTE */}
+              <View style={styles.cajaEstado} testID="aviso-modulos-paciente">
+                {totalAsignados === 0 ? (
+                  <Text style={styles.textoAvisoSinModulos}>
+                    ℹ️ <Text style={{ fontWeight: 'bold' }}>{pacienteActual?.nombre_nino || 'El paciente'}</Text> no
+                    tiene módulos específicos asignados. Al crearle una tarea, podrás elegir{' '}
+                    <Text style={{ fontWeight: 'bold' }}>cualquier módulo disponible</Text>.
+                  </Text>
+                ) : (
+                  <Text style={styles.textoAvisoConModulos}>
+                    ℹ️ <Text style={{ fontWeight: 'bold' }}>{pacienteActual?.nombre_nino || 'El paciente'}</Text> tiene{' '}
+                    <Text style={{ fontWeight: 'bold' }}>{totalAsignados} módulo(s)</Text> asignado(s). Al crearle tareas,
+                    únicamente se ofrecerán estos módulos.
+                  </Text>
+                )}
+              </View>
+
+              {/* MENSAJE DE ÉXITO O ERROR */}
+              {mensaje && (
+                <View
+                  style={[
+                    styles.cajaMensaje,
+                    mensaje.tipo === 'ok' ? styles.cajaMensajeOk : styles.cajaMensajeError,
+                  ]}
+                >
+                  <Text
+                    style={
+                      mensaje.tipo === 'ok' ? styles.textoMensajeOk : styles.textoMensajeError
+                    }
                   >
-                    <View style={styles.infoModulo}>
-                      <View style={styles.filaTituloModulo}>
-                        <Text style={styles.tituloModulo}>{modulo.titulo}</Text>
-                        <View
-                          style={[
-                            styles.badgeTipo,
-                            esPropio ? styles.badgePersonal : styles.badgeComun,
-                          ]}
-                        >
+                    {mensaje.texto}
+                  </Text>
+                </View>
+              )}
+
+              {/* LISTA DE MÓDULOS ASIGNABLES */}
+              <Text style={[styles.labelCampo, { marginTop: 15 }]}>
+                Módulos asignables ({modulosDisponibles.length}):
+              </Text>
+
+              {modulosDisponibles.length === 0 ? (
+                <Text style={styles.textoVacio}>No hay módulos en el catálogo.</Text>
+              ) : (
+                <View style={styles.listaModulos}>
+                  {modulosDisponibles.map((modulo) => {
+                    const asignado = modulosAsignadosIds.has(modulo.id);
+                    const enProceso = procesandoModuloId === modulo.id;
+                    const esPropio = modulo.terapeuta_id === terapeutaIdActual;
+
+                    return (
+                      <View
+                        key={modulo.id}
+                        style={[
+                          styles.tarjetaModulo,
+                          asignado && styles.tarjetaModuloAsignado,
+                        ]}
+                        testID={`modulo-item-${modulo.id}`}
+                      >
+                        <View style={styles.infoModulo}>
+                          <View style={styles.filaTituloModulo}>
+                            <Text style={styles.tituloModulo}>{modulo.titulo}</Text>
+                            <View
+                              style={[
+                                styles.badgeTipo,
+                                esPropio ? styles.badgePersonal : styles.badgeComun,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.textoBadgeTipo,
+                                  esPropio ? styles.textoBadgePersonal : styles.textoBadgeComun,
+                                ]}
+                              >
+                                {esPropio ? 'Personal' : 'Común'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {modulo.objetivo ? (
+                            <Text style={styles.objetivoModulo} numberOfLines={2}>
+                              {modulo.objetivo}
+                            </Text>
+                          ) : null}
+
                           <Text
+                            testID={`estado-modulo-${modulo.id}`}
                             style={[
-                              styles.textoBadgeTipo,
-                              esPropio ? styles.textoBadgePersonal : styles.textoBadgeComun,
+                              styles.estadoTexto,
+                              asignado ? styles.estadoTextoAsignado : styles.estadoTextoNoAsignado,
                             ]}
                           >
-                            {esPropio ? 'Personal' : 'Común'}
+                            {asignado ? '✓ Asignado a este paciente' : '○ No asignado'}
                           </Text>
                         </View>
+
+                        <TouchableOpacity
+                          testID={`boton-toggle-modulo-${modulo.id}`}
+                          style={[
+                            styles.botonToggle,
+                            asignado ? styles.botonDesasignar : styles.botonAsignar,
+                            enProceso && styles.botonDeshabilitado,
+                          ]}
+                          onPress={() => toggleAsignacion(modulo)}
+                          disabled={enProceso}
+                        >
+                          {enProceso ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={styles.textoBotonToggle}>
+                              {asignado ? 'Desasignar' : 'Asignar'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
                       </View>
-
-                      {modulo.objetivo ? (
-                        <Text style={styles.objetivoModulo} numberOfLines={2}>
-                          {modulo.objetivo}
-                        </Text>
-                      ) : null}
-
-                      <Text
-                        testID={`estado-modulo-${modulo.id}`}
-                        style={[
-                          styles.estadoTexto,
-                          asignado ? styles.estadoTextoAsignado : styles.estadoTextoNoAsignado,
-                        ]}
-                      >
-                        {asignado ? '✓ Asignado a este paciente' : '○ No asignado'}
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      testID={`boton-toggle-modulo-${modulo.id}`}
-                      style={[
-                        styles.botonToggle,
-                        asignado ? styles.botonDesasignar : styles.botonAsignar,
-                        enProceso && styles.botonDeshabilitado,
-                      ]}
-                      onPress={() => toggleAsignacion(modulo)}
-                      disabled={enProceso}
-                    >
-                      {enProceso ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={styles.textoBotonToggle}>
-                          {asignado ? 'Desasignar' : 'Asignar'}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
+                    );
+                  })}
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -303,11 +329,48 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e8e8e8',
   },
+  cabeceraColapsable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  cabeceraTextoContenedor: {
+    flex: 1,
+    marginRight: 10,
+  },
+  subtituloColapsable: {
+    fontSize: 12,
+    color: '#8c8c8c',
+    marginTop: 2,
+  },
+  botonDesplegarIcono: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#adc6ff',
+  },
+  botonDesplegarIconoAbierto: {
+    backgroundColor: '#e6f7ff',
+    borderColor: '#91d5ff',
+  },
+  textoIconoDesplegar: {
+    fontSize: 14,
+    color: '#0050b3',
+    fontWeight: 'bold',
+  },
+  contenidoDesplegable: {
+    marginTop: 12,
+  },
   titulo: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#0050b3',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitulo: {
     fontSize: 13,

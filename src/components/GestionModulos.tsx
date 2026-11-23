@@ -32,10 +32,13 @@ const mostrarAlerta = (titulo: string, mensaje?: string) => {
 export const GestionModulos = ({
   terapeutaIdActual,
   onModuloCambiado,
+  inicialmenteAbierto = true,
 }: {
   terapeutaIdActual: string;
   onModuloCambiado?: () => void;
+  inicialmenteAbierto?: boolean;
 }) => {
+  const [desplegado, setDesplegado] = useState(inicialmenteAbierto);
   const [modulosPropios, setModulosPropios] = useState<Modulo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -187,19 +190,39 @@ export const GestionModulos = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.cabeceraSeccion}>
-        <Text style={styles.tituloSeccion}>Módulos personalizados</Text>
-        {!mostrarFormulario && (
-          <TouchableOpacity
-            testID="boton-crear-modulo"
-            accessibilityRole="button"
-            style={styles.botonCrear}
-            onPress={iniciarCreacion}
-          >
-            <Text style={styles.textoBotonCrear}>➕ Crear módulo</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* CABECERA DESPLEGABLE */}
+      <TouchableOpacity
+        testID="boton-toggle-desplegable-modulos"
+        style={styles.cabeceraColapsable}
+        onPress={() => setDesplegado((prev) => !prev)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cabeceraTextoContenedor}>
+          <Text style={styles.tituloSeccion}>Módulos personalizados</Text>
+          <Text style={styles.subtituloColapsable}>
+            {desplegado ? 'Toca para plegar la sección' : 'Toca para abrir y crear/editar módulos'}
+          </Text>
+        </View>
+        <View style={[styles.botonDesplegarIcono, desplegado && styles.botonDesplegarIconoAbierto]}>
+          <Text style={styles.textoIconoDesplegar}>{desplegado ? '▲' : '▼'}</Text>
+        </View>
+      </TouchableOpacity>
+
+      {desplegado && (
+        <View style={styles.contenidoDesplegable}>
+          <View style={styles.cabeceraSeccion}>
+            <Text style={styles.subtituloSeccionInterior}>Gestión de módulos propios</Text>
+            {!mostrarFormulario && (
+              <TouchableOpacity
+                testID="boton-crear-modulo"
+                accessibilityRole="button"
+                style={styles.botonCrear}
+                onPress={iniciarCreacion}
+              >
+                <Text style={styles.textoBotonCrear}>➕ Crear módulo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
       {/* MENSAJES DE ESTADO */}
       {mensaje && (
@@ -357,6 +380,8 @@ export const GestionModulos = ({
           })}
         </View>
       )}
+        </View>
+      )}
     </View>
   );
 };
@@ -370,11 +395,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  cabeceraColapsable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  cabeceraTextoContenedor: {
+    flex: 1,
+    marginRight: 10,
+  },
+  subtituloColapsable: {
+    fontSize: 12,
+    color: '#8c8c8c',
+    marginTop: 2,
+  },
+  botonDesplegarIcono: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#adc6ff',
+  },
+  botonDesplegarIconoAbierto: {
+    backgroundColor: '#e6f7ff',
+    borderColor: '#91d5ff',
+  },
+  textoIconoDesplegar: {
+    fontSize: 14,
+    color: '#0050b3',
+    fontWeight: 'bold',
+  },
+  contenidoDesplegable: {
+    marginTop: 14,
+  },
   cabeceraSeccion: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  subtituloSeccionInterior: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#595959',
   },
   tituloSeccion: {
     fontSize: 18,

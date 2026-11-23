@@ -91,6 +91,7 @@ export default function InicioTerapeuta() {
         <GestionModulos
           terapeutaIdActual={terapeutaActual}
           onModuloCambiado={alCambiarDatos}
+          inicialmenteAbierto={false}
         />
       )}
 
@@ -100,6 +101,7 @@ export default function InicioTerapeuta() {
           terapeutaIdActual={terapeutaActual}
           recargarTrigger={datosVersion}
           onModulosAsignadosCambiados={alCambiarDatos}
+          inicialmenteAbierto={false}
         />
       )}
 
