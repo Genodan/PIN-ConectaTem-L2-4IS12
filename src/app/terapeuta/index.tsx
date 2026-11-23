@@ -6,6 +6,7 @@ import { RevisionTareas } from '../../components/RevisionTareas';
 import { CrearPractica } from '../../components/CrearPractica';
 import { GestionModulos } from '../../components/GestionModulos';
 import { AltaPaciente } from '../../components/AltaPaciente';
+import { AsignacionModulosPaciente } from '../../components/AsignacionModulosPaciente';
 import { supabase } from '../../utils/supabase';
 
 export default function InicioTerapeuta() {
@@ -90,6 +91,15 @@ export default function InicioTerapeuta() {
         <GestionModulos
           terapeutaIdActual={terapeutaActual}
           onModuloCambiado={alCambiarDatos}
+        />
+      )}
+
+      {/* ELEGIR MÓDULOS POR PACIENTE (UT Elegir los módulos que trabaja cada paciente) */}
+      {terapeutaActual && (
+        <AsignacionModulosPaciente
+          terapeutaIdActual={terapeutaActual}
+          recargarTrigger={datosVersion}
+          onModulosAsignadosCambiados={alCambiarDatos}
         />
       )}
 

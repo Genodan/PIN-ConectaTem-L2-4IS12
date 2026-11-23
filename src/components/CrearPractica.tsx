@@ -8,6 +8,7 @@ import {
   obtenerModulos,
   obtenerPacientesDeTerapeuta,
 } from '../services/practicasService';
+import { obtenerModulosAsignadosAPaciente } from '../services/modulosPacienteService';
 
 type Mensaje = { tipo: 'ok' | 'error'; texto: string };
 
@@ -21,6 +22,7 @@ export const CrearPractica = ({
   recargarTrigger?: number;
 }) => {
   const [pacientes, setPacientes] = useState<PacienteResumen[]>([]);
+  const [todosModulos, setTodosModulos] = useState<ModuloResumen[]>([]);
   const [modulos, setModulos] = useState<ModuloResumen[]>([]);
   const [pacienteId, setPacienteId] = useState<string | null>(null);
   const [moduloId, setModuloId] = useState<string | null>(null);
@@ -30,17 +32,71 @@ export const CrearPractica = ({
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<Mensaje | null>(null);
 
+  const cargarModulosParaPaciente = useCallback(
+    async (pacId: string | null, catalogoModulos?: ModuloResumen[]) => {
+      const base = catalogoModulos ?? todosModulos;
+      if (!pacId) {
+        setModulos(base);
+        return;
+      }
+      try {
+        let listaFiltrada = base;
+        const asignados = await obtenerModulosAsignadosAPaciente(pacId);
+        if (asignados && asignados.length > 0) {
+          const setAsignados = new Set(asignados);
+          listaFiltrada = base.filter((m) => setAsignados.has(m.id));
+        }
+        setModulos(listaFiltrada);
+        setModuloId((idActual) => {
+          if (idActual && listaFiltrada.some((m) => m.id === idActual)) {
+            return idActual;
+          }
+          return listaFiltrada[0]?.id ?? null;
+        });
+      } catch {
+        setModulos(base);
+      }
+    },
+    [todosModulos],
+  );
+
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
-      const [pacientesTerapeuta, listaModulos] = await Promise.all([
+      const [pacientesTerapeuta, listaBase] = await Promise.all([
         obtenerPacientesDeTerapeuta(terapeutaIdActual),
         obtenerModulos(terapeutaIdActual),
       ]);
+
       setPacientes(pacientesTerapeuta);
-      setModulos(listaModulos);
-      setPacienteId(pacientesTerapeuta[0]?.id ?? null);
-      setModuloId(listaModulos[0]?.id ?? null);
+      setTodosModulos(listaBase);
+
+      const targetPacienteId =
+        pacienteId && pacientesTerapeuta.some((p) => p.id === pacienteId)
+          ? pacienteId
+          : pacientesTerapeuta[0]?.id ?? null;
+      setPacienteId(targetPacienteId);
+
+      let listaFiltrada = listaBase;
+      if (targetPacienteId) {
+        try {
+          const asignados = await obtenerModulosAsignadosAPaciente(targetPacienteId);
+          if (asignados && asignados.length > 0) {
+            const setAsignados = new Set(asignados);
+            listaFiltrada = listaBase.filter((m) => setAsignados.has(m.id));
+          }
+        } catch {
+          // Si no hay asignaciones o falla la tabla, se usan todos los módulos
+        }
+      }
+
+      setModulos(listaFiltrada);
+      setModuloId((idActual) => {
+        if (idActual && listaFiltrada.some((m) => m.id === idActual)) {
+          return idActual;
+        }
+        return listaFiltrada[0]?.id ?? null;
+      });
     } catch (error) {
       setMensaje({ tipo: 'error', texto: textoDeError(error) });
     } finally {
@@ -48,7 +104,7 @@ export const CrearPractica = ({
     }
   }, [terapeutaIdActual]);
 
-  // Se recarga al cambiar de terapeuta o cuando se crea/edita un módulo
+  // Se recarga al cambiar de terapeuta o cuando se crea/edita un módulo o cambian asignaciones
   useEffect(() => {
     setMensaje(null);
     cargarDatos();
@@ -93,7 +149,10 @@ export const CrearPractica = ({
             <Picker
               testID="picker-paciente"
               selectedValue={pacienteId}
-              onValueChange={(valor) => setPacienteId(valor)}
+              onValueChange={(valor) => {
+                setPacienteId(valor);
+                cargarModulosParaPaciente(valor);
+              }}
             >
               {pacientes.map((p) => (
                 <Picker.Item key={p.id} label={`${p.nombre_nino} (${p.nombre_familia})`} value={p.id} />
