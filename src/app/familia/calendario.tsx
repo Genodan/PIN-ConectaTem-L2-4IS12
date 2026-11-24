@@ -16,6 +16,7 @@ import {
   rangoDeHitos,
 } from '../../services/hitosCalendarioService';
 import { aTextoISO, formatearFecha, inicioDelDia, textoLargoDeFecha } from '../../services/calendarioService';
+import { insigniasPorDia } from '../../services/rachaService';
 
 // UT 1404 · Calendario de hitos (familia): los días en que el paciente alcanzó un hito
 // (práctica «Con feedback») o envió una práctica que espera feedback.
@@ -24,6 +25,8 @@ const COLOR_MARCA: Record<TipoHito, string> = {
   feedback: '#2e9e4f',
   enviada: '#1f78d1',
 };
+// UT 1449: día en que la familia consiguió una insignia
+const COLOR_INSIGNIA = '#d4a017';
 
 export default function CalendarioHitosScreen() {
   const params = useLocalSearchParams<{ pacienteId?: string }>();
@@ -87,23 +90,32 @@ export default function CalendarioHitosScreen() {
 
   const porDia = useMemo(() => hitosPorDia(practicas), [practicas]);
   const rango = useMemo(() => rangoDeHitos(porDia), [porDia]);
+  const insignias = useMemo(() => insigniasPorDia(practicas), [practicas]);
 
   const marcas = useMemo(() => {
     const resultado: Record<string, MarcaDia[]> = {};
     for (const [dia, tipos] of Object.entries(marcasPorDia(porDia))) {
       resultado[dia] = tipos.map((tipo) => ({ id: tipo, color: COLOR_MARCA[tipo] }));
     }
+    for (const dia of insignias.keys()) {
+      resultado[dia] = [...(resultado[dia] ?? []), { id: 'insignia', color: COLOR_INSIGNIA }];
+    }
     return resultado;
-  }, [porDia]);
+  }, [porDia, insignias]);
 
-  // No se navega a meses posteriores al actual ni anteriores al de la primera práctica
+  // No se navega a meses posteriores al actual ni anteriores al de la primera práctica o insignia
   const min = useMemo(() => {
-    const primero = rango?.primero ?? hoy;
+    const diasInsignia = [...insignias.keys()].map((clave) => {
+      const [anio, mes, dia] = clave.split('-').map(Number);
+      return new Date(anio, mes - 1, dia).getTime();
+    });
+    const primero = new Date(Math.min((rango?.primero ?? hoy).getTime(), ...diasInsignia));
     return new Date(primero.getFullYear(), primero.getMonth(), 1);
-  }, [rango, hoy]);
+  }, [rango, hoy, insignias]);
   const max = rango && rango.ultimo.getTime() > hoy.getTime() ? rango.ultimo : hoy;
 
   const hitosDelDia = diaElegido ? porDia.get(aTextoISO(diaElegido)) ?? [] : [];
+  const insigniasDelDia = diaElegido ? insignias.get(aTextoISO(diaElegido)) ?? [] : [];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -142,6 +154,10 @@ export default function CalendarioHitosScreen() {
               <View style={[styles.puntoLeyenda, { backgroundColor: COLOR_MARCA.enviada }]} />
               <Text style={styles.textoLeyenda}>Enviada, a la espera de feedback</Text>
             </View>
+            <View style={styles.itemLeyenda}>
+              <View style={[styles.puntoLeyenda, { backgroundColor: COLOR_INSIGNIA }]} />
+              <Text style={styles.textoLeyenda}>Insignia conseguida</Text>
+            </View>
           </View>
 
           {porDia.size === 0 ? (
@@ -155,7 +171,14 @@ export default function CalendarioHitosScreen() {
           ) : (
             <View testID="practicas-del-dia">
               <Text style={styles.tituloDia}>{`Prácticas del ${textoLargoDeFecha(diaElegido)}`}</Text>
-              {hitosDelDia.length === 0 ? (
+              {/* UT 1449: insignias conseguidas ese día */}
+              {insigniasDelDia.map((insignia) => (
+                <View key={insignia.clave} style={styles.tarjetaInsignia} testID="tarjeta-dia-insignia">
+                  <Text style={styles.tituloInsignia}>{`Insignia conseguida: ${insignia.titulo}`}</Text>
+                  <Text style={styles.descripcionInsignia}>{insignia.descripcion}</Text>
+                </View>
+              ))}
+              {hitosDelDia.length === 0 && insigniasDelDia.length > 0 ? null : hitosDelDia.length === 0 ? (
                 <View style={styles.tarjetaVacia}>
                   <Text testID="texto-dia-sin-practicas" style={styles.textoVacio}>
                     Este día no hay prácticas.
@@ -233,4 +256,14 @@ const styles = StyleSheet.create({
   badgeFeedback: { color: '#1b6b36', backgroundColor: '#e3f5e8' },
   badgeEnviada: { color: '#0050b3', backgroundColor: '#e6f7ff' },
   fechaHito: { fontSize: 12, color: '#666', marginBottom: 8 },
+  tarjetaInsignia: {
+    backgroundColor: '#fffbe6',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#ffe58f',
+  },
+  tituloInsignia: { fontSize: 14, fontWeight: 'bold', color: '#874d00' },
+  descripcionInsignia: { fontSize: 12, color: '#666', marginTop: 2 },
 });

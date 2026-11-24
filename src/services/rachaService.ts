@@ -1,4 +1,5 @@
 import { PracticaFamilia } from './panelFamiliaService';
+import { aTextoISO } from './calendarioService';
 
 // UT 1449 · Racha semanal e insignias automáticas de la familia.
 // Se calculan a partir de las prácticas que ya carga el panel: no hay tablas nuevas.
@@ -145,3 +146,17 @@ export const insigniasPorPractica = (resumen: ResumenRacha): Record<string, Insi
     porPractica[insignia.practicaId] = [...(porPractica[insignia.practicaId] ?? []), insignia];
     return porPractica;
   }, {});
+
+// Calendario de hitos: insignias agrupadas por el día (local, «aaaa-mm-dd») en que se consiguieron,
+// que es el día en que se envió la práctica que las consiguió
+export const insigniasPorDia = (practicas: PracticaFamilia[], hoy: Date = new Date()): Map<string, InsigniaConseguida[]> => {
+  const fechaEnvio = new Map(practicas.map((p) => [p.id, p.fecha_envio]));
+  const dias = new Map<string, InsigniaConseguida[]>();
+  for (const insignia of calcularRacha(practicas, hoy).insignias) {
+    const envio = fechaEnvio.get(insignia.practicaId);
+    if (!envio) continue;
+    const clave = aTextoISO(new Date(envio));
+    dias.set(clave, [...(dias.get(clave) ?? []), insignia]);
+  }
+  return dias;
+};
