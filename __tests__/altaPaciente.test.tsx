@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AltaPaciente } from '../src/components/AltaPaciente';
+import { MENSAJE_PACIENTE_EXISTENTE } from '../src/services/pacientesService';
 import { supabase } from '../src/utils/supabase';
 
 // UT 1354 · «➕ Nuevo paciente»: la terapeuta da de alta un paciente y queda en su cartera.
@@ -11,7 +12,7 @@ jest.mock('../src/utils/supabase', () => ({
 
 const from = supabase.from as jest.Mock;
 
-type Existente = { nombre_nino: string; nombre_familia: string };
+type Existente = { nombre_nino: string; nombre_familia: string; terapeuta_asignado_id?: string | null };
 
 // Simula la tabla `pacientes`: lo que ya hay y lo que devuelve el insert (por defecto, la fila que se pidió)
 const simularBaseDeDatos = ({
@@ -26,8 +27,7 @@ const simularBaseDeDatos = ({
         Promise.resolve({ data: errorInsertar ? null : { id: 'pac-nuevo', ...fila }, error: errorInsertar }),
     }),
   }));
-  const eq = jest.fn().mockResolvedValue({ data: existentes, error: null });
-  const select = jest.fn().mockReturnValue({ eq });
+  const select = jest.fn().mockResolvedValue({ data: existentes, error: null });
   from.mockReturnValue({ select, insert });
   return { insert };
 };
@@ -172,7 +172,9 @@ describe('AltaPaciente (UT 1354)', () => {
 
   // PA nueva (duplicados)
   describe('paciente repetido', () => {
-    const existentes = [{ nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1' }];
+    const existentes = [
+      { nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1', terapeuta_asignado_id: 'ter-1' },
+    ];
 
     it('no lo crea y avisa, aunque cambien las mayúsculas', async () => {
       const { insert } = simularBaseDeDatos({ existentes });
@@ -183,6 +185,19 @@ describe('AltaPaciente (UT 1354)', () => {
       await guardar();
 
       expect(await screen.findByText('Ya tienes un paciente con ese nombre y esa familia.')).toBeOnTheScreen();
+      expect(screen.getByTestId('formulario-paciente')).toBeOnTheScreen();
+      expect(insert).not.toHaveBeenCalled();
+    });
+
+    it('si ya está en la cartera de otra terapeuta tampoco lo crea y explica cómo traerlo', async () => {
+      const { insert } = simularBaseDeDatos({ existentes });
+      await render(<AltaPaciente terapeutaIdActual="ter-2" />);
+
+      await abrirFormulario();
+      await rellenar('Paciente de prueba 1', 'Familia de prueba 1');
+      await guardar();
+
+      expect(await screen.findByText(MENSAJE_PACIENTE_EXISTENTE)).toBeOnTheScreen();
       expect(screen.getByTestId('formulario-paciente')).toBeOnTheScreen();
       expect(insert).not.toHaveBeenCalled();
     });

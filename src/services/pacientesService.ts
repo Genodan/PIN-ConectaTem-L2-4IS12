@@ -39,6 +39,8 @@ export const vincularPaciente = async (pacienteId: string, terapeutaId: string) 
 // UT 1354 · Alta de un paciente por la terapeuta. Sin registro ni código de invitación (aún no hay inicio de sesión):
 // el paciente nace ya asignado a la terapeuta que lo da de alta.
 export const LIMITE_NOMBRE_PACIENTE = 80;
+export const MENSAJE_PACIENTE_EXISTENTE =
+  'Ya existe un paciente con ese nombre y esa familia. Búscalo en «Asignar o Transferir Paciente» para añadirlo a tu cartera.';
 
 export interface DatosNuevoPaciente {
   nombreNino: string;
@@ -70,20 +72,25 @@ export const crearPaciente = async (datos: DatosNuevoPaciente): Promise<Paciente
   }
   if (!datos.terapeutaId) throw new Error('Se requiere la terapeuta que da de alta al paciente.');
 
-  // No se repite un paciente (mismo nombre y misma familia) dentro de la cartera de la terapeuta
+  // No se repite un paciente (mismo nombre y misma familia) en todo el sistema, no solo en la cartera de esta terapeuta
   const { data: existentes, error: errorLeer } = await supabase
     .from('pacientes')
-    .select('id, nombre_nino, nombre_familia')
-    .eq('terapeuta_asignado_id', datos.terapeutaId);
+    .select('id, nombre_nino, nombre_familia, terapeuta_asignado_id');
 
   if (errorLeer) throw new Error('Error al comprobar los pacientes: ' + errorLeer.message);
 
-  const repetido = (existentes ?? []).some(
+  const repetido = (existentes ?? []).find(
     (p: { nombre_nino: string; nombre_familia: string }) =>
       normalizarNombre(p.nombre_nino ?? '') === normalizarNombre(nombreNino) &&
       normalizarNombre(p.nombre_familia ?? '') === normalizarNombre(nombreFamilia),
   );
-  if (repetido) throw new Error('Ya tienes un paciente con ese nombre y esa familia.');
+  if (repetido) {
+    // Si es de otra terapeuta no se dice de quién: solo se indica cómo traerlo a la cartera
+    if (repetido.terapeuta_asignado_id === datos.terapeutaId) {
+      throw new Error('Ya tienes un paciente con ese nombre y esa familia.');
+    }
+    throw new Error(MENSAJE_PACIENTE_EXISTENTE);
+  }
 
   const { data, error } = await supabase
     .from('pacientes')

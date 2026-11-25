@@ -1,4 +1,4 @@
-import { LIMITE_NOMBRE_PACIENTE, crearPaciente } from '../src/services/pacientesService';
+import { LIMITE_NOMBRE_PACIENTE, MENSAJE_PACIENTE_EXISTENTE, crearPaciente } from '../src/services/pacientesService';
 import { supabase } from '../src/utils/supabase';
 
 // UT 1354 · alta de un paciente por la terapeuta (sin tocar la base de datos real)
@@ -8,9 +8,9 @@ jest.mock('../src/utils/supabase', () => ({
 
 const from = supabase.from as jest.Mock;
 
-// Las dos consultas del servicio: select(...).eq(terapeuta) para ver los pacientes que ya tiene, e insert(...).select().single()
+// Las dos consultas del servicio: select(...) para ver todos los pacientes que ya existen, e insert(...).select().single()
 const simular = ({
-  existentes = [] as { nombre_nino: string; nombre_familia: string }[],
+  existentes = [] as { nombre_nino: string; nombre_familia: string; terapeuta_asignado_id?: string | null }[],
   errorLeer = null as { message: string } | null,
   filaCreada = { id: 'pac-nuevo', nombre_nino: 'X', nombre_familia: 'Y', terapeuta_asignado_id: 'ter-1' } as unknown,
   errorInsertar = null as { message: string } | null,
@@ -18,10 +18,9 @@ const simular = ({
   const single = jest.fn().mockResolvedValue({ data: filaCreada, error: errorInsertar });
   const selectDespuesDeInsertar = jest.fn().mockReturnValue({ single });
   const insert = jest.fn().mockReturnValue({ select: selectDespuesDeInsertar });
-  const eq = jest.fn().mockResolvedValue({ data: existentes, error: errorLeer });
-  const select = jest.fn().mockReturnValue({ eq });
+  const select = jest.fn().mockResolvedValue({ data: existentes, error: errorLeer });
   from.mockReturnValue({ select, insert });
-  return { insert, select, eq };
+  return { insert, select };
 };
 
 describe('crearPaciente (UT 1354)', () => {
@@ -129,17 +128,19 @@ describe('crearPaciente (UT 1354)', () => {
   });
 
   describe('pacientes repetidos', () => {
-    it('solo mira los pacientes de esa terapeuta', async () => {
-      const { eq } = simular();
+    it('mira todos los pacientes, no solo los de esa terapeuta', async () => {
+      const { select } = simular();
 
       await crearPaciente({ nombreNino: 'Paciente', nombreFamilia: 'Familia', terapeutaId: 'ter-7' });
 
-      expect(eq).toHaveBeenCalledWith('terapeuta_asignado_id', 'ter-7');
+      expect(select).toHaveBeenCalledWith('id, nombre_nino, nombre_familia, terapeuta_asignado_id');
     });
 
-    it('rechaza el mismo nombre y la misma familia, sin distinguir mayúsculas ni espacios sobrantes', async () => {
+    it('rechaza el mismo nombre y la misma familia en su cartera, sin distinguir mayúsculas ni espacios sobrantes', async () => {
       const { insert } = simular({
-        existentes: [{ nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1' }],
+        existentes: [
+          { nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1', terapeuta_asignado_id: 'ter-1' },
+        ],
       });
 
       for (const [nino, familia] of [
@@ -154,9 +155,41 @@ describe('crearPaciente (UT 1354)', () => {
       expect(insert).not.toHaveBeenCalled();
     });
 
+    it('rechaza el paciente que ya está en la cartera de otra terapeuta, sin decir de quién es', async () => {
+      const { insert } = simular({
+        existentes: [
+          { nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1', terapeuta_asignado_id: 'ter-1' },
+        ],
+      });
+
+      for (const [nino, familia] of [
+        ['Paciente de prueba 1', 'Familia de prueba 1'],
+        ['  paciente   DE prueba 1 ', ' familia de  prueba 1  '],
+      ]) {
+        await expect(
+          crearPaciente({ nombreNino: nino, nombreFamilia: familia, terapeutaId: 'ter-2' }),
+        ).rejects.toThrow(MENSAJE_PACIENTE_EXISTENTE);
+      }
+      expect(MENSAJE_PACIENTE_EXISTENTE).not.toContain('ter-1');
+      expect(insert).not.toHaveBeenCalled();
+    });
+
+    it('rechaza también el paciente que existe sin terapeuta asignada', async () => {
+      const { insert } = simular({
+        existentes: [{ nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1', terapeuta_asignado_id: null }],
+      });
+
+      await expect(
+        crearPaciente({ nombreNino: 'Paciente de prueba 1', nombreFamilia: 'Familia de prueba 1', terapeutaId: 'ter-2' }),
+      ).rejects.toThrow(MENSAJE_PACIENTE_EXISTENTE);
+      expect(insert).not.toHaveBeenCalled();
+    });
+
     it('admite el mismo nombre con otra familia, y la misma familia con otro nombre', async () => {
       const { insert } = simular({
-        existentes: [{ nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1' }],
+        existentes: [
+          { nombre_nino: 'Paciente de prueba 1', nombre_familia: 'Familia de prueba 1', terapeuta_asignado_id: 'ter-1' },
+        ],
       });
 
       await crearPaciente({ nombreNino: 'Paciente de prueba 1', nombreFamilia: 'Familia de prueba 2', terapeutaId: 'ter-1' });
