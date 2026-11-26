@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Button } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { AsignacionPacientes } from '../../components/AsignacionPacientes';
 import { RevisionTareas } from '../../components/RevisionTareas';
@@ -15,6 +16,7 @@ export default function InicioTerapeuta() {
   const [cargando, setCargando] = useState(true);
   // Sube cuando se crea/edita un módulo o se da de alta un paciente: «Crear práctica» recarga sus desplegables
   const [datosVersion, setDatosVersion] = useState(0);
+  const router = useRouter();
 
   const alCambiarDatos = () => setDatosVersion((v) => v + 1);
 
@@ -70,6 +72,17 @@ export default function InicioTerapeuta() {
           </View>
         )}
       </View>
+
+      {/* UT 1095: mensajes con las familias de sus pacientes */}
+      {terapeutaActual && (
+        <View style={styles.botonMensajes}>
+          <Button
+            testID="boton-mensajes-terapeuta"
+            title="Mensajes"
+            onPress={() => router.push({ pathname: '/terapeuta/mensajes', params: { terapeutaId: terapeutaActual } })}
+          />
+        </View>
+      )}
 
       {/* 2. SECCIÓN DE ASIGNACIÓN */}
       <View style={styles.separador} />
@@ -147,6 +160,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#fff',
   },
+  botonMensajes: { marginHorizontal: 10, marginTop: 10 },
   separador: {
     height: 10,
   },
