@@ -34,7 +34,9 @@
           "cameraPermission": "Se necesita acceso a la cámara para grabar el vídeo de la tarea.",
           "microphonePermission": "Se necesita acceso al micrófono para grabar el vídeo de la tarea."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-font"
     ]
   }
 }
