@@ -182,8 +182,12 @@ export default function InicioTerapeuta() {
                 ) : pacientes.length === 0 ? (
                   <Text style={textos.cuerpo}>Todavía no tienes pacientes asignados.</Text>
                 ) : (
-                  pacientes.slice(0, MAXIMO_POR_LISTA).map((p, i) => (
-                    <TarjetaPaciente key={p.id} paciente={p} indice={i} onVerFicha={() => router.replace('/terapeuta/pacientes')} />
+                  pacientes.slice(0, MAXIMO_POR_LISTA).map((p) => (
+                    <TarjetaPaciente
+                      key={p.id}
+                      paciente={p}
+                      onVerFicha={() => router.replace({ pathname: '/terapeuta/pacientes', params: { paciente: p.id } })}
+                    />
                   ))
                 )}
               </View>

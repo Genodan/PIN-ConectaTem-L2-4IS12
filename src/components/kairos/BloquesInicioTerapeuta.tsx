@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Image, ImageSource } from 'expo-image';
 import { colores, fuentes, textos } from '../../tema/kairos';
 import { INICIALES_DIAS, NOMBRES_MESES, inicioDelDia } from '../../services/calendarioService';
@@ -16,7 +16,7 @@ import { SesionDelDia, horaDeSesion } from '../../services/notasSesionService';
 
 // Bloques del inicio de la terapeuta (Figma: «INICIO - TERAPEUTA»). Solo muestran datos.
 
-const PATRONES: Record<PatronModulo, ImageSource> = {
+export const PATRONES: Record<PatronModulo, ImageSource> = {
   'intencion-comunicativa': require('../../../assets/kairos/patron-intencion-comunicativa.png'),
   'reloj-de-la-calma': require('../../../assets/kairos/patron-reloj-de-la-calma.png'),
   'el-espejo': require('../../../assets/kairos/patron-el-espejo.png'),
@@ -24,7 +24,7 @@ const PATRONES: Record<PatronModulo, ImageSource> = {
   'mis-primeras-palabras': require('../../../assets/kairos/patron-mis-primeras-palabras.png'),
 };
 
-export const AVATARES: ImageSource[] = [
+const AVATARES: ImageSource[] = [
   require('../../../assets/kairos/avatar-1.png'),
   require('../../../assets/kairos/avatar-2.png'),
   require('../../../assets/kairos/avatar-3.png'),
@@ -33,39 +33,65 @@ export const AVATARES: ImageSource[] = [
   require('../../../assets/kairos/avatar-6.png'),
 ];
 
-// ---- «Hagamos memoria»: los tres contadores ----
-export const Indicadores = ({ sesiones, evidencias, pacientes }: { sesiones: number; evidencias: number; pacientes: number }) => {
-  const indicadores = [
-    { valor: sesiones, color: colores.amarillo, titulo: 'Sesiones de hoy', subtitulo: 'Encuentros del día' },
-    { valor: evidencias, color: colores.naranja, titulo: 'Evidencias por revisar', subtitulo: 'Falta tu visto bueno' },
-    { valor: pacientes, color: colores.azul, titulo: 'Pacientes activos', subtitulo: 'Marca la diferencia en su vida' },
-  ];
-  return (
-    <View style={estilos.indicadores}>
-      {indicadores.map((i, n) => (
-        <View
-          key={i.titulo}
-          style={[estilos.indicador, n < indicadores.length - 1 && estilos.indicadorConBorde]}
-          accessibilityLabel={`${i.valor} ${i.titulo}`}
-        >
-          <Text style={[textos.numero, { color: i.color }]}>{i.valor}</Text>
-          <View style={estilos.descripcion}>
-            <Text style={textos.cuerpoGrande}>{i.titulo}</Text>
-            <Text style={textos.cuerpo}>{i.subtitulo}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
+// Cada niño tiene siempre el mismo avatar (sale de su id: no cambia al renombrarlo ni al reordenar la lista)
+export const avatarDe = (id: string): ImageSource => {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return AVATARES[Math.abs(h) % AVATARES.length];
 };
 
+// ---- Fila de contadores (número de color + título + subtítulo) ----
+export interface DatoIndicador {
+  valor: number;
+  color: string;
+  titulo: string;
+  subtitulo: string;
+}
+
+export const ResumenIndicadores = ({ indicadores, style }: { indicadores: DatoIndicador[]; style?: StyleProp<ViewStyle> }) => (
+  <View style={[estilos.indicadores, style]}>
+    {indicadores.map((i, n) => (
+      <View
+        key={i.titulo}
+        style={[estilos.indicador, n < indicadores.length - 1 && estilos.indicadorConBorde]}
+        accessibilityLabel={`${i.valor} ${i.titulo}`}
+      >
+        <Text style={[textos.numero, { color: i.color }]}>{i.valor}</Text>
+        <View style={estilos.descripcion}>
+          <Text style={textos.cuerpoGrande}>{i.titulo}</Text>
+          <Text style={textos.cuerpo}>{i.subtitulo}</Text>
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+// ---- «Hagamos memoria»: los tres contadores del inicio ----
+export const Indicadores = ({ sesiones, evidencias, pacientes }: { sesiones: number; evidencias: number; pacientes: number }) => (
+  <ResumenIndicadores
+    indicadores={[
+      { valor: sesiones, color: colores.amarillo, titulo: 'Sesiones de hoy', subtitulo: 'Encuentros del día' },
+      { valor: evidencias, color: colores.naranja, titulo: 'Evidencias por revisar', subtitulo: 'Falta tu visto bueno' },
+      { valor: pacientes, color: colores.azul, titulo: 'Pacientes activos', subtitulo: 'Marca la diferencia en su vida' },
+    ]}
+  />
+);
+
 // ---- Cabecera de sección con «Ver todos →» ----
-export const CabeceraSeccion = ({ titulo, onVerTodos }: { titulo: string; onVerTodos?: () => void }) => (
+export const CabeceraSeccion = ({
+  titulo,
+  onVerTodos,
+  textoEnlace = 'Ver todos →',
+}: {
+  titulo: string;
+  onVerTodos?: () => void;
+  textoEnlace?: string;
+}) => (
   <View style={estilos.cabeceraSeccion}>
     <Text style={[textos.tituloSeccion, estilos.flex]}>{titulo}</Text>
     {onVerTodos && (
-      <Pressable accessibilityRole="link" onPress={onVerTodos}>
-        <Text style={textos.cuerpo}>Ver todos →</Text>
+      <Pressable accessibilityRole="link" accessibilityLabel={`${textoEnlace.replace(' →', '')}: ${titulo}`} onPress={onVerTodos}>
+        <Text style={textos.cuerpo}>{textoEnlace}</Text>
       </Pressable>
     )}
   </View>
@@ -94,11 +120,11 @@ export const TarjetaEvidencia = ({ evidencia, onPress, hoy }: { evidencia: Evide
 };
 
 // ---- «Pacientes activos» con su progreso ----
-export const TarjetaPaciente = ({ paciente, indice, onVerFicha }: { paciente: PacienteConProgreso; indice: number; onVerFicha: () => void }) => {
+export const TarjetaPaciente = ({ paciente, onVerFicha }: { paciente: PacienteConProgreso; onVerFicha: () => void }) => {
   const pct = porcentaje(paciente.completadas, paciente.total);
   return (
     <View style={estilos.tarjetaPaciente} testID="tarjeta-paciente">
-      <Image source={AVATARES[indice % AVATARES.length]} style={estilos.avatar} contentFit="cover" />
+      <Image source={avatarDe(paciente.id)} style={estilos.avatar} contentFit="cover" />
       <View style={estilos.datosPaciente}>
         <View style={estilos.fila}>
           <Text style={[textos.nombre, estilos.flex]}>{paciente.nombreNino}</Text>

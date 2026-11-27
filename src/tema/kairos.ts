@@ -12,6 +12,9 @@ export const colores = {
   naranja: '#FC6E48', // «Orange»
   verde: '#00936D', // «Green»
   gris: '#C6C6C6', // «Grey»
+  grisOscuro: '#777777', // «gris» (botón «Invitar a un nuevo paciente», textos de ayuda)
+  verdeOscuro: '#00664C', // estado «Completada»
+  rojo: '#A3321B', // estado «Vencida» y acciones delicadas (traspasar)
   fondo: '#F3F2F5', // fondo de pantalla
   blanco: '#FFFFFF',
   bordeCabecera: '#D5D5D5',

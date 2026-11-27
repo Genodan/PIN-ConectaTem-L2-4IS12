@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BotonCuadrado, VentanaKairos } from './Comunes';
 import { Image } from 'expo-image';
 import { colores, fuentes, textos } from '../../tema/kairos';
 import { fechaLarga } from '../../services/inicioTerapeutaService';
@@ -25,44 +26,34 @@ export const NotasDelDia = ({ visible, dia, sesiones, cargando, error, onCambiar
   const moverDia = (cambio: number) => onCambiarDia(new Date(dia.getFullYear(), dia.getMonth(), dia.getDate() + cambio));
 
   return (
-    // onRequestClose: botón «atrás» en Android y tecla Esc en la web
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCerrar}>
-      <View style={estilos.fondo}>
-        <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Cerrar las notas del día" onPress={onCerrar} />
-        <View style={estilos.ventana} accessibilityViewIsModal testID="notas-del-dia">
-          <View style={estilos.cabecera}>
-            <View style={estilos.iconoNotas}>
-              <Image source={require('../../../assets/kairos/notas.svg')} style={estilos.iconoPequeno} contentFit="contain" />
-            </View>
-            <View style={estilos.flex}>
-              <Text style={textos.tituloSeccion}>Notas del día</Text>
-              <Text style={textos.cuerpo}>{fechaLarga(dia)}</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Día anterior" style={estilos.botonRedondo} onPress={() => moverDia(-1)}>
-              <Text style={estilos.flecha}>‹</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Día siguiente" style={estilos.botonRedondo} onPress={() => moverDia(1)}>
-              <Text style={estilos.flecha}>›</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" style={estilos.botonRedondo} onPress={onCerrar}>
-              <Text style={estilos.cerrar}>×</Text>
-            </Pressable>
-          </View>
-
-          <ScrollView contentContainerStyle={estilos.lista}>
-            {cargando ? (
-              <ActivityIndicator size="large" color={colores.amarillo} />
-            ) : error ? (
-              <Text style={textos.cuerpo}>{error}</Text>
-            ) : sesiones.length === 0 ? (
-              <Text style={textos.cuerpo}>No hay sesiones este día.</Text>
-            ) : (
-              sesiones.map((s) => <NotaDeUnaSesion key={s.id} sesion={s} onGuardada={(nota) => onNotaGuardada(s.id, nota)} />)
-            )}
-          </ScrollView>
+    <VentanaKairos
+      visible={visible}
+      titulo="Notas del día"
+      subtitulo={fechaLarga(dia)}
+      testID="notas-del-dia"
+      onCerrar={onCerrar}
+      icono={
+        <View style={estilos.iconoNotas}>
+          <Image source={require('../../../assets/kairos/notas.svg')} style={estilos.iconoPequeno} contentFit="contain" />
         </View>
-      </View>
-    </Modal>
+      }
+      acciones={
+        <>
+          <BotonCuadrado etiqueta="Día anterior" texto="‹" onPress={() => moverDia(-1)} />
+          <BotonCuadrado etiqueta="Día siguiente" texto="›" onPress={() => moverDia(1)} />
+        </>
+      }
+    >
+      {cargando ? (
+        <ActivityIndicator size="large" color={colores.amarillo} />
+      ) : error ? (
+        <Text style={textos.cuerpo}>{error}</Text>
+      ) : sesiones.length === 0 ? (
+        <Text style={textos.cuerpo}>No hay sesiones este día.</Text>
+      ) : (
+        sesiones.map((s) => <NotaDeUnaSesion key={s.id} sesion={s} onGuardada={(nota) => onNotaGuardada(s.id, nota)} />)
+      )}
+    </VentanaKairos>
   );
 };
 
@@ -135,27 +126,8 @@ const NotaDeUnaSesion = ({ sesion, onGuardada }: { sesion: SesionDelDia; onGuard
 const estilos = StyleSheet.create({
   flex: { flex: 1 },
   fila: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  fondo: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(34, 34, 34, 0.45)' },
-  ventana: {
-    width: 720,
-    maxWidth: '100%',
-    maxHeight: '85%',
-    borderRadius: 32,
-    backgroundColor: colores.blanco,
-    paddingVertical: 24,
-    shadowColor: '#172D26',
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
-  },
-  cabecera: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingBottom: 16 },
   iconoNotas: { width: 32, height: 32, borderRadius: 10, padding: 7, opacity: 0.8, alignItems: 'center', justifyContent: 'center', backgroundColor: colores.amarillo },
   iconoPequeno: { width: 18, height: 18 },
-  botonRedondo: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colores.fondo },
-  flecha: { ...textos.tituloSeccion, lineHeight: 32 },
-  cerrar: { ...textos.tituloSeccion, fontSize: 26, lineHeight: 32 },
-  lista: { gap: 16, paddingHorizontal: 24, paddingTop: 8 },
   sesion: { gap: 12, padding: 20, borderRadius: 20, backgroundColor: colores.fondo },
   campo: {
     ...textos.cuerpo,

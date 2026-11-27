@@ -110,7 +110,7 @@ describe('Nueva interfaz · Inicio de la terapeuta', () => {
     expect(mockReplace).toHaveBeenCalledWith('/terapeuta/evidencias');
   });
 
-  it('lista los pacientes activos con su progreso y «Ver ficha» lleva a «Pacientes»', async () => {
+  it('lista los pacientes activos con su progreso y «Ver ficha» abre la ficha de ese niño en «Pacientes»', async () => {
     await abrir();
 
     const tarjetas = screen.getAllByTestId('tarjeta-paciente');
@@ -121,7 +121,7 @@ describe('Nueva interfaz · Inicio de la terapeuta', () => {
     expect(within(tarjetas[2]).getByText('100%')).toBeOnTheScreen();
 
     await fireEvent.press(within(tarjetas[0]).getByText('Ver ficha →'));
-    expect(mockReplace).toHaveBeenCalledWith('/terapeuta/pacientes');
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/terapeuta/pacientes', params: { paciente: 'p1' } });
   });
 
   it('«Sesiones de hoy» lista las sesiones de hoy con su hora, aunque se elija otro día en el calendario', async () => {
